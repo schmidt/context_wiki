@@ -1,8 +1,6 @@
 #!/usr/bin/env ruby
 (%w{rubygems redcloth camping camping/db camping/session mime/types} + 
- %w{acts_as_versioned contextr}).each{ |lib| require lib }
-%{sleeping_bag}.each{ |ext| 
-  require File.dirname(__FILE__) + "/../ext/#{ext}/#{ext}" }
+ %w{acts_as_versioned contextr md5}).each{ |lib| require lib }
 
 Camping.goes :ContextWiki
 
@@ -16,7 +14,7 @@ module ContextCamping
 
   def service(*a)
     ContextR::with_layer *compute_current_context do
-      @headers['x-contextr'] = ContextR::current_layers.join(" ")
+      @headers['x-contextr'] = ContextR::layer_symbols.join(" ")
       super(*a)
     end
   end
@@ -141,48 +139,17 @@ module ContextWiki::Models
 end
 
 module ContextWiki::Controllers
-  class Users < R '/users', '/users/(\d+)'
-    def get(id = nil)
-    end
-
-    def put(id = nil)
-    end
-  end
-
-  class Session < R '/sessions', '/sessions/([^\/]+)', 
-                    '/sessions/([^\/]+)/([^\/]+)' 
-    include SleepingBag
-
-    def new
-      render "new_session"
-    end
-    def create
-      @user = User.authenticate(input.name, input.password)
-      if @user
-        @state.user_id = @user.id
-      end
-    end
-    def destroy(id)
-      @state.user_id = nil 
-    end
-  end
-
-
-  class Wiki < R '/(\w+)/(\w+)', '/(\w+)/(\w+)/(\d)'
-    def get(wiki, page, version = nil)
-      "wiki: #{wiki} page: #{page}"
-    end
-  end
-
   class Index < R '/'
     def get
       "some"
     end
 
-    layer :random
-    random.around :get do | n |
-      n.return_value = "else"
+    module RandomMethods
+      def get
+        "else"
+      end
     end
+    register RandomMethods => ContextR::RandomLayer
   end
 
   class Static < R '/static/(.+)'         
