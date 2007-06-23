@@ -49,23 +49,31 @@ module ContextWiki::Models
     validates_presence_of :name, :email
     validates_uniqueness_of :name
     validates_length_of :name, :within => 2..25
-    validates_format_of :name, :with => /[a-z]+/
+    validates_format_of :name, :with => /[a-z]+/i
     validates_length_of :password, :within => 2..25, :if => :password_required?
     validates_confirmation_of :password,             :if => :password_required?
     validates_format_of :email, 
                   :with => /(^([^@\s]+)@((?:[-_a-z0-9]+\.)+[a-z]{2,})$)|(^$)/i
+
+    def self.authenticate(name, password)
+      User.find_by_name_and_hashed_password(name, self.build_hash(password))
+    end
 
     def password_required?
       hashed_password.blank? || !password.blank?
     end
 
     def hash_password
-      self.hashed_password = MD5.hexdigest(password) unless password.blank?
+      self.hashed_password = User.build_hash(password) unless password.blank?
+    end
+
+    def self.build_hash(string)
+      MD5.hexdigest(string)
     end
   end
   class GroupMembership < Base
-    belongs_to :user
-    belongs_to :group
+    belongs_to :user, :class_name => "User", :foreign_key => "user_id"
+    belongs_to :group, :class_name => "Group", :foreign_key => "group_id"
   end
   class Group < Base
     set_primary_key :name
@@ -74,7 +82,7 @@ module ContextWiki::Models
     has_many :pages
 
     validates_length_of :name, :within => 2..25
-    validates_format_of :name, :with => /a-z/
+    validates_format_of :name, :with => /[a-z]+/i
   end
   class Page < Base
     belongs_to :user
@@ -107,8 +115,8 @@ module ContextWiki::Models
 
       create_table :contextwiki_group_memberships, 
                    :id => false, :force => true do | t |
-        t.column :group_id, :integer, :null => false
-        t.column :user_id,  :integer, :null => false
+        t.column :group_id, :string, :limit => 25, :null => false
+        t.column :user_id,  :string, :limit => 25, :null => false
       end
       add_index(:contextwiki_group_memberships, [:group_id, :user_id], 
                                                           :unique => true)
@@ -178,13 +186,26 @@ module ContextWiki::Controllers
     # GET /users/(id)/edit
     def edit(id)
       @user = User.find(id)
+      @groups = Group.find(:all)
       render "user_edit"
     end
 
-    # POST /users/(id)
+    # PUT /users/(id)
     def update(id)
       @user = User.find(id)
-      @user.update_attributes(input.user)
+      new_groups = input.user.delete("groups").to_a.collect do | group_name |
+        Group.find(group_name)
+      end
+      old_groups = @user.groups
+      (new_groups - old_groups).each do | group |
+        @user.groups << group
+      end
+      (old_groups - new_groups).each do | group |
+        y(:group_id => group.id, :user_id => @user.id)
+        GroupMembership.delete_all(:group_id => group.id,
+                                    :user_id => @user.id)
+      end
+      @user.attributes = input.user
       if @user.valid?
         @user.save
         render "user_show"
@@ -225,6 +246,53 @@ module ContextWiki::Controllers
       else
         render "group_create"
       end
+    end
+
+    # GET /groups/(id)
+    def show(id)
+      @group = Group.find(id)
+      render "group_show"
+    end
+
+    # DELETE /groups/(id)
+    def destroy(id)
+      @group = Group.find(id)
+      @group.destroy
+      @groups = Group.find(:all)
+      render "group_list"
+    end
+  end
+
+  class Sessions <  R '/sessions', 
+                      '/sessions/([^\/]+)', 
+                      '/sessions/([^\/]+)/([^\/]+)'
+    include SleepingBag
+    def index
+      unless @state.current_user.nil?
+        @current_user = User.find(@state.current_user)
+      else
+        @current_user = nil
+      end
+      render "session_list"
+    end
+    def new
+      render "session_create"
+    end
+    def create
+      @current_user = User.authenticate(input.session.name, 
+                                        input.session.password)
+      @state.current_user = @current_user.id unless @current_user.nil?
+      if @current_user.nil?
+        @error = true
+        render "session_create"
+      else
+        render "session_list"
+      end
+    end
+    def destroy(id)
+      @current_user = nil
+      @state.current_user = @current_user 
+      render "session_list"
     end
   end
 
@@ -315,7 +383,13 @@ module ContextWiki::Views
     end
     ul do
       li { a "Edit", :href => R(Users, @user.id, :edit) }
-      li { a "Delete", :href => R(Users, @user.id, :delete) }
+      li do
+        form :action => R(Users, @user.id), :method => "post" do
+          input :type => "hidden", :name => "_verb", :value => "delete"
+          input :type => "submit", :value => "Delete"
+          text " this operation may not be reverted!"
+        end
+      end
       li { a "Back to list", :href => R(Users) }
     end
   end
@@ -374,11 +448,29 @@ module ContextWiki::Views
             :type => "text", :value => @user.email
       br
 
+      fieldset do
+        legend "Group Memberships"
+        @groups.each do | group |
+          if @user.groups.include?(group)
+            input :type => "checkbox", :name => "user[groups]",
+                  :value => "#{group.name}",
+                  :id => "user_groups_#{group.name}", :checked => "checked"
+          else
+            input :type => "checkbox", :name => "user[groups]",
+                  :value => "#{group.name}",
+                  :id => "user_groups_#{group.name}"
+          end
+          label group.name, :for => "user_groups_#{group.name}"
+          br
+        end
+      end
+
       input :type => 'submit', :value => 'Change settings'
     end
   end
 
-
+  #########################
+  # Group Related Views
   def group_list
     table do
       thead do 
@@ -401,7 +493,7 @@ module ContextWiki::Views
     p { a "Create new group", :href => R(Groups, "new") }
   end
 
-  def user_create
+  def group_create
     form :action => R(Groups), :method => :post do
       errors_for @group
 
@@ -413,6 +505,69 @@ module ContextWiki::Views
 
       input :type => 'submit', :value => 'Create Group'
     end
+  end
+
+  def group_show
+    dl do
+      dt "Name"
+      dd @group.name
+
+      dt "Created at"
+      dd @group.created_at
+
+      dt "Updated at"
+      dd @group.updated_at
+    end
+    ul do
+      li do
+        form :action => R(Groups, @group.id), :method => "post" do
+          input :type => "hidden", :name => "_verb", :value => "delete"
+          input :type => "submit", :value => "Delete"
+          text " this operation may not be reverted!"
+        end
+      end
+      li { a "Back to list", :href => R(Groups) }
+    end
+  end
+
+
+  #################
+  # Session Related Views
+  def session_list
+    if @current_user
+      p do
+        text "You are successfully logged in."
+        text "Your user name is "
+        em(@current_user.name)
+        text "."
+      end
+      form :action => R(Sessions, @current_user.id), :method => "post" do
+        input :type => "hidden", :name => "_verb", :value => "delete"
+        input :type => "submit", :value => "Log out"
+      end
+    else
+      p "You are not logged in."
+      p { a "Log in", :href => R(Sessions, :new) }
+    end
+  end
+
+  def session_create
+    p "Wrong user name or password. Please try again." if @error
+    form :action => R(Sessions), :method => "post" do
+      label "User name", :for => "session_name"
+      br
+      input :type => "text", :name => "session[name]", :id => "session_name"
+      br
+
+      label "Password", :for => "session_password"
+      br
+      input :type => "password", :name => "session[password]", 
+            :id => "session_password"
+      br
+
+      input :type => "submit", :value => "Log in"
+    end
+
   end
 end
 
