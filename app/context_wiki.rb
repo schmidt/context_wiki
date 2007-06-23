@@ -10,7 +10,7 @@ module ContextCamping
   def compute_current_context
     layers = []
     layers << :random if rand(0).round.zero?
-    layers << :knownuser if @state.user_id
+    layers << :known_user if @state.current_user
     layers
   end
 
@@ -30,6 +30,10 @@ module REST
     end
     super(*a)
   end
+end
+
+module Camping::Session
+  attr_reader :state
 end
 
 module ContextWiki
@@ -301,15 +305,22 @@ module ContextWiki::Controllers
 
   class Index < R '/'
     def get
-      "some"
+      "Basic action"
     end
 
-    module RandomMethods
+    module KnownUserMethods
       def get
-        "else"
+        yield + "<br />" + "Actions for #{@receiver.state.current_user}"
       end
     end
-    register RandomMethods => ContextR::RandomLayer
+    module RandomMethods
+      def get
+        yield + "<br />" + "Random action"
+      end
+    end
+
+    register RandomMethods => ContextR::RandomLayer,
+             KnownUserMethods => ContextR::KnownUserLayer
   end
 
   class Static < R '/static/(.+)'         
