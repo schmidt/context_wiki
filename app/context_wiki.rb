@@ -1,80 +1,23 @@
 #!/usr/bin/env ruby
-(%w{rubygems redcloth camping camping/db camping/session mime/types} + 
- %w{acts_as_versioned contextr md5}).each{ |lib| require lib }
+%w{rubygems redcloth camping camping/db camping/session mime/types
+   acts_as_versioned contextr md5}.each{ |lib| require lib }
 
-require File.dirname(__FILE__) + '/../ext/sleeping_bag/sleeping_bag'
+%w{sleeping_bag}.each { |ext| 
+    require File.dirname(__FILE__) + "/../ext/#{ext}/#{ext}" }
+
+%w{context_camping rest}.each { |lib| 
+    require File.dirname(__FILE__) + "/../lib/#{lib}" }
 
 Camping.goes :ContextWiki
-
-module ContextLogging
-  def service(*a)
-    t1 = Time.now
-    s = super(*a)
-    t2 = Time.now
-    puts(["\"#{t1.to_formatted_s(:short)}\"",
-          "%.2fs" % (t2 - t1),
-          env["PATH_INFO"],
-          "(%s)" % ContextR::layer_symbols.join(", ")].join(" - "))
-    s
-  end
-end
-
-module ContextCamping
-  include ContextLogging
-  def compute_current_context
-    layers = []
-    layers << :random if rand(0).round.zero?
-    if @state.current_user
-      layers << :known_user
-      @current_user = @state.current_user
-      @current_user.groups.each do | group |
-        layers << group.name.singularize.to_sym
-      end
-    end
-    layers
-  end
-
-  def service(*a)
-    ContextR::with_layer *compute_current_context do
-      @headers['x-contextr'] = ContextR::layer_symbols.join(" ")
-      super(*a)
-    end
-  end
-end
-
-module REST
-  def service(*a)
-    if @method == 'post' && (input._verb == 'put' || input._verb == 'delete')
-      @env['REQUEST_METHOD'] = input._verb.upcase
-      @method = input._verb
-    end
-    super(*a)
-  end
-
-  module Controllers
-    def REST(name)
-      name = name.downcase
-      klass = R "/#{name}/", 
-        "/#{name}/([^\/]+)", 
-        "/#{name}/([^\/]+)/([^\/]+)"
-      klass.send(:include, SleepingBag)
-      klass
-    end
-  end
-
-  def self.included(modul)
-    modul.const_get("Controllers").extend(Controllers)
-    modul.const_get("Helpers").module_eval do
-      define_method :http_verb do |verb|
-        input :type => "hidden", :value => verb.downcase, :name => "_verb"
-      end
-    end
-  end
-end
 
 module Camping::Session
   attr_reader :state
 end
+
+
+%w{random editor admin known_user}.each { |layer|
+    load(File.dirname(__FILE__) + "/../layer/#{layer}.rb")}
+
 
 module ContextWiki
   include Camping::Session, ContextCamping, REST 
@@ -849,50 +792,6 @@ module ContextWiki::Helpers
   def footer 
     text "Basic actions"
   end
-  module KnownUserHelpers
-    def footer
-      @receiver.capture do
-        yield
-      end + @receiver.capture do
-        text " &middot; "
-        text "Actions for #{state.current_user}"
-      end
-    end
-  end
-  module EditorHelpers
-    def footer
-      @receiver.capture do
-        yield 
-      end + @receiver.capture do
-        text " &middot; "
-        text "Editor actions"
-      end
-    end
-  end
-  module AdminHelpers
-    def footer
-      @receiver.capture do
-        yield
-      end + @receiver.capture do
-        text " &middot; "
-        text "Admin actions"
-      end
-    end
-  end
-  module RandomHelpers
-    def footer
-      @receiver.capture do
-        yield
-      end + @receiver.capture do
-        text " &middot; "
-        text "Random actions"
-      end
-    end
-  end
-  register RandomHelpers => ContextR::RandomLayer,
-           EditorHelpers => ContextR::EditorLayer,
-           AdminHelpers => ContextR::AdminLayer,
-           KnownUserHelpers => ContextR::KnownUserLayer
 end
 
 def ContextWiki.create  
