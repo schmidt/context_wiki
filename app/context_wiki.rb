@@ -847,13 +847,13 @@ end
 
 module ContextWiki::Helpers
   def footer 
-    capture do
-      text "Basic actions"
-    end
+    text "Basic actions"
   end
   module KnownUserHelpers
     def footer
-      yield + @receiver.capture do
+      @receiver.capture do
+        yield
+      end + @receiver.capture do
         text " &middot; "
         text "Actions for #{state.current_user}"
       end
@@ -861,7 +861,9 @@ module ContextWiki::Helpers
   end
   module EditorHelpers
     def footer
-      yield + @receiver.capture do
+      @receiver.capture do
+        yield 
+      end + @receiver.capture do
         text " &middot; "
         text "Editor actions"
       end
@@ -869,7 +871,9 @@ module ContextWiki::Helpers
   end
   module AdminHelpers
     def footer
-      yield + @receiver.capture do
+      @receiver.capture do
+        yield
+      end + @receiver.capture do
         text " &middot; "
         text "Admin actions"
       end
@@ -877,7 +881,9 @@ module ContextWiki::Helpers
   end
   module RandomHelpers
     def footer
-      yield + @receiver.capture do
+      @receiver.capture do
+        yield
+      end + @receiver.capture do
         text " &middot; "
         text "Random actions"
       end
