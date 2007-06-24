@@ -6,7 +6,21 @@ require File.dirname(__FILE__) + '/../ext/sleeping_bag/sleeping_bag'
 
 Camping.goes :ContextWiki
 
+module ContextLogging
+  def service(*a)
+    t1 = Time.now
+    s = super(*a)
+    t2 = Time.now
+    puts(["\"#{t1.to_formatted_s(:short)}\"",
+          "%.2fs" % (t2 - t1),
+          env["PATH_INFO"],
+          "(%s)" % ContextR::layer_symbols.join(", ")].join(" - "))
+    s
+  end
+end
+
 module ContextCamping
+  include ContextLogging
   def compute_current_context
     layers = []
     layers << :random if rand(0).round.zero?
@@ -63,7 +77,7 @@ module Camping::Session
 end
 
 module ContextWiki
-  include Camping::Session, ContextCamping, REST
+  include Camping::Session, ContextCamping, REST 
   Mab.set(:indent, 4)
 end
 
@@ -833,26 +847,40 @@ end
 
 module ContextWiki::Helpers
   def footer 
-    "Basic actions"
+    capture do
+      text "Basic actions"
+    end
   end
   module KnownUserHelpers
-    def footer 
-      [yield, "Actions for #{@receiver.state.current_user}"].join(" &middot; ")
+    def footer
+      yield + @receiver.capture do
+        text " &middot; "
+        text "Actions for #{state.current_user}"
+      end
     end
   end
   module EditorHelpers
     def footer
-      [yield, "Editor actions"].join(" &middot; ")
+      yield + @receiver.capture do
+        text " &middot; "
+        text "Editor actions"
+      end
     end
   end
   module AdminHelpers
     def footer
-      [yield, "Admin actions"].join(" &middot; ")
+      yield + @receiver.capture do
+        text " &middot; "
+        text "Admin actions"
+      end
     end
   end
   module RandomHelpers
     def footer
-      [yield, "Random actions"].join(" &middot; ")
+      yield + @receiver.capture do
+        text " &middot; "
+        text "Random actions"
+      end
     end
   end
   register RandomHelpers => ContextR::RandomLayer,
