@@ -10,7 +10,13 @@ module ContextCamping
   def compute_current_context
     layers = []
     layers << :random if rand(0).round.zero?
-    layers << :known_user if @state.current_user
+    if @state.current_user
+      layers << :known_user
+      @current_user = @state.current_user
+      @current_user.groups.each do | group |
+        layers << group.name.singularize.to_sym
+      end
+    end
     layers
   end
 
@@ -29,6 +35,26 @@ module REST
       @method = input._verb
     end
     super(*a)
+  end
+
+  module Controllers
+    def REST(name)
+      name = name.downcase
+      klass = R "/#{name}/", 
+        "/#{name}/([^\/]+)", 
+        "/#{name}/([^\/]+)/([^\/]+)"
+      klass.send(:include, SleepingBag)
+      klass
+    end
+  end
+
+  def self.included(modul)
+    modul.const_get("Controllers").extend(Controllers)
+    modul.const_get("Helpers").module_eval do
+      define_method :http_verb do |verb|
+        input :type => "hidden", :value => verb.downcase, :name => "_verb"
+      end
+    end
   end
 end
 
@@ -59,16 +85,20 @@ module ContextWiki::Models
     validates_format_of :email, 
                   :with => /(^([^@\s]+)@((?:[-_a-z0-9]+\.)+[a-z]{2,})$)|(^$)/i
 
-    def self.authenticate(name, password)
-      User.find_by_name_and_hashed_password(name, self.build_hash(password))
-    end
-
     def password_required?
       hashed_password.blank? || !password.blank?
     end
 
     def hash_password
       self.hashed_password = User.build_hash(password) unless password.blank?
+    end
+
+    def to_s
+      self.name
+    end
+
+    def self.authenticate(name, password)
+      User.find_by_name_and_hashed_password(name, self.build_hash(password))
     end
 
     def self.build_hash(string)
@@ -87,21 +117,27 @@ module ContextWiki::Models
 
     validates_length_of :name, :within => 2..25
     validates_format_of :name, :with => /[a-z]+/i
+
+    def to_s
+      self.name
+    end
   end
   class Page < Base
-    belongs_to :user
-    belongs_to :group
+    belongs_to :user, :class_name => "User", :foreign_key => "user_id"
 
     acts_as_versioned
 
-    validates_uniqueness_of :name, :sope => :wiki_id
+    validates_uniqueness_of :name
     validates_format_of     :name, :with => /^[a-zA-Z0-9\-\.\_\~\!\*\'\(\)\+]+$/
-    validates_length_of       :name, :within => 2..25
+    validates_length_of       :name, :within => 2..50
     validates_presence_of     :markup
     validates_presence_of     :user_id
-    validates_presence_of     :group_id
     validates_numericality_of :rights
     validates_inclusion_of    :rights, :in => 0..0x777
+
+    def to_s
+      self.name
+    end
   end
 
   class CreateContextWiki < V 1.0
@@ -136,8 +172,7 @@ module ContextWiki::Models
         t.column :name,     :string,  :limit => 50, :null => false
         t.column :content,  :text
         t.column :markup,   :string,  :limit => 10, :null => false
-        t.column :group_id, :integer, :null => false
-        t.column :user_id,  :integer, :null => false
+        t.column :user_id,  :string, :limit => 25, :null => false
         t.column :rights,   :integer
       end
       Page.create_versioned_table
@@ -157,8 +192,7 @@ module ContextWiki::Models
 end
 
 module ContextWiki::Controllers
-  class Users < R '/users', '/users/([^\/]+)', '/users/([^\/]+)/([^\/]+)'
-    include SleepingBag
+  class Users < REST('users')
     # GET /users
     def index
       @users = User.find(:all)
@@ -205,7 +239,6 @@ module ContextWiki::Controllers
         @user.groups << group
       end
       (old_groups - new_groups).each do | group |
-        y(:group_id => group.id, :user_id => @user.id)
         GroupMembership.delete_all(:group_id => group.id,
                                     :user_id => @user.id)
       end
@@ -227,8 +260,7 @@ module ContextWiki::Controllers
     end
   end
 
-  class Groups < R '/groups', '/groups/([^\/]+)', '/groups/([^\/]+)/([^\/]+)'
-    include SleepingBag
+  class Groups < REST('groups')
     # GET /group
     def index
       @groups = Group.find(:all)
@@ -267,10 +299,8 @@ module ContextWiki::Controllers
     end
   end
 
-  class Sessions <  R '/sessions', 
-                      '/sessions/([^\/]+)', 
-                      '/sessions/([^\/]+)/([^\/]+)'
-    include SleepingBag
+  class Sessions <  REST('sessions')
+    # GET /sessions
     def index
       unless @state.current_user.nil?
         @current_user = User.find(@state.current_user)
@@ -279,13 +309,17 @@ module ContextWiki::Controllers
       end
       render "session_list"
     end
+
+    # GET /sessions/new
     def new
       render "session_create"
     end
+
+    # POST /sessions
     def create
       @current_user = User.authenticate(input.session.name, 
                                         input.session.password)
-      @state.current_user = @current_user.id unless @current_user.nil?
+      @state.current_user = @current_user unless @current_user.nil?
       if @current_user.nil?
         @error = true
         render "session_create"
@@ -293,6 +327,8 @@ module ContextWiki::Controllers
         render "session_list"
       end
     end
+
+    # DELETE /sessions/(id)
     def destroy(id)
       @current_user = nil
       @state.current_user = @current_user 
@@ -300,27 +336,68 @@ module ContextWiki::Controllers
     end
   end
 
-  class Pages < R '/pages', '/pages/([^\/]+)', '/pages/([^\/]+)/([^\/]+)'
+  class Pages < REST('pages')
+    # GET /pages
+    def index
+      @pages = Page.find(:all, :limit => 20)
+      render "page_list"
+    end
+
+    # GET /pages/(id)
+    def show(id)
+      @page = Page.find_by_name(id)
+      render "page_show"
+    end
+
+    # GET /pages/new
+    def new
+      @page = Page.new()
+      render "page_create"
+    end
+    # PUT /pages
+    def create
+      @page = Page.new(input.page)
+      @page.name = input.page.name.underscore
+      @page.rights ||= 0x777
+      @page.user = state.current_user
+      if @page.valid?
+        @page.save
+        render "page_show"
+      else
+        render "page_create"
+      end
+    end
+
+    # GET /pages/(id)/edit
+    def edit(id)
+      @page = Page.find_by_name(id)
+      render "page_edit"
+    end
+    # PUT /pages/(id)
+    def update(id)
+      @page = Page.find_by_name(id)
+      @page.update_attributes(input.page)
+      if @page.valid?
+        @page.save
+        render "page_show"
+      else
+        render "page_edit"
+      end
+    end
+
+    # DELETE /pages/(id)
+    def destroy(id)
+      Page.delete_all(:name => id)
+      @pages = Page.find(:all, :limit => 20)
+      render "page_list"
+    end
   end
 
   class Index < R '/'
     def get
-      "Basic action"
+      render "index"
     end
 
-    module KnownUserMethods
-      def get
-        yield + "<br />" + "Actions for #{@receiver.state.current_user}"
-      end
-    end
-    module RandomMethods
-      def get
-        yield + "<br />" + "Random action"
-      end
-    end
-
-    register RandomMethods => ContextR::RandomLayer,
-             KnownUserMethods => ContextR::KnownUserLayer
   end
 
   class Static < R '/static/(.+)'         
@@ -342,7 +419,7 @@ end
 
 module ContextWiki::Views
   def layout
-    html do
+    xhtml_strict do
       head do
         link :rel => 'stylesheet',
              :type => 'text/css',
@@ -351,9 +428,34 @@ module ContextWiki::Views
         title "ContextWiki :: Camping Wiki using ContextR"
       end
       body do 
-        self << yield
+        div :id => "container" do
+          div :id => "head" do
+            h1 "ContextWiki :: Camping Wiki using ContextR"
+          end
+          div :id => "body" do
+            div :id => "content" do
+              self << yield
+            end
+            div :id => "navigation" do
+              ul :id => "basic_navigation" do
+                li { a "Index", :href => R(Index) }
+                li { a "Pages", :href => R(Pages) }
+                li { a "Users", :href => R(Users) }
+                li { a "Groups", :href => R(Groups) }
+                li { a "Sessions", :href => R(Sessions) }
+              end
+            end
+          end
+          div :id => "foot" do
+            footer
+          end
+        end
       end
     end
+  end
+
+  def index
+    p "Welcome to our shiny, tiny wiki system."
   end
 
   def user_list
@@ -368,9 +470,9 @@ module ContextWiki::Views
       tbody do
         @users.each do | user |
           tr do
-            th { a user.id, :href => R(Users, user.id) } 
-            th user.std_markup
-            th user.created_at
+            td { a user.id, :href => R(Users, user.id) } 
+            td user.std_markup
+            td user.created_at
           end
         end
       end
@@ -396,9 +498,11 @@ module ContextWiki::Views
       li { a "Edit", :href => R(Users, @user.id, :edit) }
       li do
         form :action => R(Users, @user.id), :method => "post" do
-          input :type => "hidden", :name => "_verb", :value => "delete"
-          input :type => "submit", :value => "Delete"
-          text " this operation may not be reverted!"
+          p do
+            http_verb("delete")
+            input :type => "submit", :value => "Delete"
+            text " this operation may not be reverted!"
+          end
         end
       end
       li { a "Back to list", :href => R(Users) }
@@ -409,30 +513,39 @@ module ContextWiki::Views
     form :action => R(Users), :method => :post do
       errors_for @user
 
-      label "Name", :for => "user_name"
-      br
-      input :name => 'user[name]', :id => 'user_name', 
-            :type => 'text', :value => @user.name
-      br
+      p do
+        label "Name", :for => "user_name"
+        br
+        input :name => 'user[name]', :id => 'user_name', 
+              :type => 'text', :value => @user.name
+      end
 
-      label "Password", :for => "user_password"
-      br
-      input :name => 'user[password]', :id => 'user_password', 
-            :type => 'password'
-      br
-      label "Password Confimation", :for => "user_password_confirmation"
-      br
-      input :name => 'user[password_confirmation]', 
-            :id => 'user_password_confirmation', :type => 'password'
-      br
+      p do
+        label "Password", :for => "user_password"
+        br
+        input :name => 'user[password]', :id => 'user_password', 
+              :type => 'password'
+      end
 
-      label "Email", :for => "user_email"
-      br
-      input :name => 'user[email]', :id => 'user_email', 
-            :type => "text", :value => @user.email
-      br
+      p do
+        label "Password Confimation", :for => "user_password_confirmation"
+        br
+        input :name => 'user[password_confirmation]', 
+              :id => 'user_password_confirmation', :type => 'password'
+      end 
 
-      input :type => 'submit', :value => 'Create Account'
+      p do
+        label "Email", :for => "user_email"
+        br
+        input :name => 'user[email]', :id => 'user_email', 
+              :type => "text", :value => @user.email
+      end
+
+      p do
+        input :type => 'submit', :value => 'Create Account'
+        text " "
+        a "Back", :href => R(Users)
+      end
     end
   end
 
@@ -440,43 +553,52 @@ module ContextWiki::Views
     form :action => R(Users, @user.id), :method => :post do
       errors_for @user
 
-      input :type => "hidden", :name => "_verb", :value => "put"
+      p do
+        http_verb "put"
 
-      label "Password", :for => "user_password"
-      br
-      input :name => 'user[password]', :id => 'user_password', 
-            :type => 'password'
-      br
-      label "Password Confimation", :for => "user_password_confirmation"
-      br
-      input :name => 'user[password_confirmation]', 
-            :id => 'user_password_confirmation', :type => 'password'
-      br
+        label "Password", :for => "user_password"
+        br
+        input :name => 'user[password]', :id => 'user_password', 
+              :type => 'password'
+      end
+      
+      p do
+        label "Password Confimation", :for => "user_password_confirmation"
+        br
+        input :name => 'user[password_confirmation]', 
+              :id => 'user_password_confirmation', :type => 'password'
+      end
 
-      label "Email", :for => "user_email"
-      br
-      input :name => 'user[email]', :id => 'user_email', 
-            :type => "text", :value => @user.email
-      br
+      p do
+        label "Email", :for => "user_email"
+        br
+        input :name => 'user[email]', :id => 'user_email', 
+              :type => "text", :value => @user.email
+      end
 
       fieldset do
         legend "Group Memberships"
         @groups.each do | group |
-          if @user.groups.include?(group)
-            input :type => "checkbox", :name => "user[groups]",
-                  :value => "#{group.name}",
-                  :id => "user_groups_#{group.name}", :checked => "checked"
-          else
-            input :type => "checkbox", :name => "user[groups]",
-                  :value => "#{group.name}",
-                  :id => "user_groups_#{group.name}"
+          p do
+            if @user.groups.include?(group)
+              input :type => "checkbox", :name => "user[groups]",
+                    :value => "#{group.name}",
+                    :id => "user_groups_#{group.name}", :checked => "checked"
+            else
+              input :type => "checkbox", :name => "user[groups]",
+                    :value => "#{group.name}",
+                    :id => "user_groups_#{group.name}"
+            end
+            label group.name, :for => "user_groups_#{group.name}"
           end
-          label group.name, :for => "user_groups_#{group.name}"
-          br
         end
       end
 
-      input :type => 'submit', :value => 'Change settings'
+      p do
+        input :type => 'submit', :value => 'Change settings'
+        text " "
+        a "Back", :href => R(Users, @user.name)
+      end
     end
   end
 
@@ -494,9 +616,9 @@ module ContextWiki::Views
       tbody do
         @groups.each do | group |
           tr do
-            th { a group.name , :href => R(Groups, group.name) } 
-            th group.group_memberships.size
-            th group.created_at
+            td { a group.name , :href => R(Groups, group.name) } 
+            td group.group_memberships.size
+            td group.created_at
           end
         end
       end
@@ -508,13 +630,18 @@ module ContextWiki::Views
     form :action => R(Groups), :method => :post do
       errors_for @group
 
-      label "Name", :for => "group_name"
-      br
-      input :name => 'group[name]', :id => 'group_name', 
-            :type => 'text', :value => @group.name
-      br
+      p do
+        label "Name", :for => "group_name"
+        br
+        input :name => 'group[name]', :id => 'group_name', 
+              :type => 'text', :value => @group.name
+      end
 
-      input :type => 'submit', :value => 'Create Group'
+      p do
+        input :type => 'submit', :value => 'Create Group'
+        text " "
+        a "Back", :href => R(Groups)
+      end
     end
   end
 
@@ -532,7 +659,7 @@ module ContextWiki::Views
     ul do
       li do
         form :action => R(Groups, @group.id), :method => "post" do
-          input :type => "hidden", :name => "_verb", :value => "delete"
+          http_verb("delete")
           input :type => "submit", :value => "Delete"
           text " this operation may not be reverted!"
         end
@@ -553,8 +680,10 @@ module ContextWiki::Views
         text "."
       end
       form :action => R(Sessions, @current_user.id), :method => "post" do
-        input :type => "hidden", :name => "_verb", :value => "delete"
-        input :type => "submit", :value => "Log out"
+        p do
+          http_verb("delete")
+          input :type => "submit", :value => "Log out"
+        end
       end
     else
       p "You are not logged in."
@@ -565,21 +694,170 @@ module ContextWiki::Views
   def session_create
     p "Wrong user name or password. Please try again." if @error
     form :action => R(Sessions), :method => "post" do
-      label "User name", :for => "session_name"
-      br
-      input :type => "text", :name => "session[name]", :id => "session_name"
-      br
+      p do
+        label "User name", :for => "session_name"
+        br
+        input :type => "text", :name => "session[name]", :id => "session_name"
+      end
 
-      label "Password", :for => "session_password"
-      br
-      input :type => "password", :name => "session[password]", 
-            :id => "session_password"
-      br
+      p do
+        label "Password", :for => "session_password"
+        br
+        input :type => "password", :name => "session[password]", 
+              :id => "session_password"
+      end
 
-      input :type => "submit", :value => "Log in"
+      p { input :type => "submit", :value => "Log in" }
+    end
+  end
+
+  #################
+  # Page Related Views
+  def page_list
+    table do
+      thead do 
+        tr do
+          th "name"
+          th "revision"
+          th "owner"
+          th "rights"
+          th "markup"
+        end
+      end
+      tbody do
+        @pages.each do | page |
+          tr do
+            td { a page.name , :href => R(Pages, page.name) } 
+            td { page.version }
+            td { page.user }
+            td { "%x" % page.rights }
+            td { page.markup }
+          end
+        end
+      end
+    end
+    p { a "Create new page", :href => R(Pages, "new") }
+  end
+
+  def page_show
+    h2 @page.name.titleize
+    div :class => "wiki_content" do
+      @page.content
+    end
+    ul do
+      li { a "Edit", :href => R(Pages, @page.name, :edit) }
+      li do
+        form :action => R(Pages, @page.name), :method => "post" do
+          p do
+            http_verb("delete")
+            input :type => "submit", :value => "Delete"
+            text " this operation may not be reverted!"
+          end
+        end
+      end
+      li { a "Back to list", :href => R(Pages) }
+    end
+  end
+
+  def page_create
+    form :action => R(Pages), :method => "post" do
+      errors_for(@page)
+
+      p do
+        label "Name", :for => "page_name"
+        br
+        input :name => 'page[name]', :id => 'page_name', 
+              :type => 'text', :value => @page.name
+      end
+
+      _page_form
+
+      p do 
+        input :type => "submit", :value => "Create Page"
+        text " "
+        a "Back", :href => R(Pages)
+      end
+    end
+  end
+
+  def page_edit
+    form :action => R(Pages, @page.name), :method => "post" do
+      http_verb "put"
+      errors_for(@page)
+
+      p do
+        label "Name", :for => "page_name"
+        br
+        strong @page.name
+      end
+
+      _page_form
+
+      p do 
+        input :type => "submit", :value => "Change Page"
+        text " "
+        a "Back", :href => R(Pages)
+      end
+    end
+  end
+
+  def _page_form
+    fieldset do
+      legend "Markup"
+      ["HTML", "Markaby", "Markdown"].each do | markup |
+        p do
+          options = {:name => 'page[markup]', 
+                     :id => "page_markup_#{markup.downcase}", 
+                     :type => 'radio', :value => markup}
+          if (@page.markup.nil? and markup == "HTML") or 
+              @page.markup == markup
+            options[:checked] = "checked"
+          end
+
+          input(options)
+          label markup, :for => "page_markup_#{markup.downcase}"
+        end
+      end
     end
 
+    p do
+      label "Content", :for => "page_content"
+      br
+      textarea :name => 'page[content]', :id => 'page_content' do
+        text @page.content
+      end
+    end
   end
+end
+
+module ContextWiki::Helpers
+  def footer 
+    "Basic actions"
+  end
+  module KnownUserHelpers
+    def footer 
+      [yield, "Actions for #{@receiver.state.current_user}"].join(" &middot; ")
+    end
+  end
+  module EditorHelpers
+    def footer
+      [yield, "Editor actions"].join(" &middot; ")
+    end
+  end
+  module AdminHelpers
+    def footer
+      [yield, "Admin actions"].join(" &middot; ")
+    end
+  end
+  module RandomHelpers
+    def footer
+      [yield, "Random actions"].join(" &middot; ")
+    end
+  end
+  register RandomHelpers => ContextR::RandomLayer,
+           EditorHelpers => ContextR::EditorLayer,
+           AdminHelpers => ContextR::AdminLayer,
+           KnownUserHelpers => ContextR::KnownUserLayer
 end
 
 def ContextWiki.create  
