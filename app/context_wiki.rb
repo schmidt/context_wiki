@@ -64,6 +64,7 @@ end
 
 module ContextWiki
   include Camping::Session, ContextCamping, REST
+  Mab.set(:indent, 4)
 end
 
 module ContextWiki::Models
@@ -428,16 +429,16 @@ module ContextWiki::Views
         title "ContextWiki :: Camping Wiki using ContextR"
       end
       body do 
-        div :id => "container" do
-          div :id => "head" do
+        div.container! do
+          div.head! do
             h1 "ContextWiki :: Camping Wiki using ContextR"
           end
-          div :id => "body" do
-            div :id => "content" do
+          div.body! do
+            div.content! do
               self << yield
             end
-            div :id => "navigation" do
-              ul :id => "basic_navigation" do
+            div.navigation! do
+              ul.basic_navigation! do
                 li { a "Index", :href => R(Index) }
                 li { a "Pages", :href => R(Pages) }
                 li { a "Users", :href => R(Users) }
@@ -446,7 +447,7 @@ module ContextWiki::Views
               end
             end
           end
-          div :id => "foot" do
+          div.foot! do
             footer
           end
         end
@@ -741,7 +742,7 @@ module ContextWiki::Views
 
   def page_show
     h2 @page.name.titleize
-    div :class => "wiki_content" do
+    div.wiki_content do
       @page.content
     end
     ul do
