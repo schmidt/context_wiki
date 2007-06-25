@@ -1,6 +1,6 @@
-class ContextWiki::Controllers::Groups
-  module NoAdminMethods
-    %w{get post put delete}.each do | method_name |
+module UnAuthorized
+  def unautorize(method_names)
+    method_names.each do | method_name |
       define_method method_name.to_sym do | *a |
         @receiver.instance_eval do
           @status = 401
@@ -9,34 +9,27 @@ class ContextWiki::Controllers::Groups
         end
       end
     end
+  end
+end
+
+class ContextWiki::Controllers::Groups
+  module NoAdminMethods
+    self.extend(UnAuthorized)
+    unautorize(%w{get post put delete})
   end
   register NoAdminMethods => ContextR::NoAdminLayer
 end
 class ContextWiki::Controllers::Users
   module NoAdminMethods
-    %w{delete}.each do | method_name |
-      define_method method_name.to_sym do | *a |
-        @receiver.instance_eval do
-          @status = 401
-          "test"
-          render "not_authorized"
-        end
-      end
-    end
+    self.extend(UnAuthorized)
+    unautorize(%w{delete})
   end
   register NoAdminMethods => ContextR::NoAdminLayer
 end
 class ContextWiki::Controllers::Pages
   module NoAdminMethods
-    %w{delete}.each do | method_name |
-      define_method method_name.to_sym do | *a |
-        @receiver.instance_eval do
-          @status = 401
-          "test"
-          render "not_authorized"
-        end
-      end
-    end
+    self.extend(UnAuthorized)
+    unautorize(%w{delete})
   end
   register NoAdminMethods => ContextR::NoAdminLayer
 end
