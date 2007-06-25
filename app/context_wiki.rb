@@ -5,8 +5,9 @@
 %w{sleeping_bag}.each { |ext| 
     require File.dirname(__FILE__) + "/../ext/#{ext}/#{ext}" }
 
-%w{context_camping rest}.each { |lib| 
-    require File.dirname(__FILE__) + "/../lib/#{lib}" }
+%w{general context_camping rest renderer}.each { |lib| 
+    load(File.dirname(__FILE__) + "/../lib/#{lib}.rb") }
+
 
 Camping.goes :ContextWiki
 
@@ -96,6 +97,10 @@ module ContextWiki::Models
     def to_s
       self.name
     end
+
+    def rendered_content
+      ContextWiki::RENDERER[self.markup.to_sym].render(self.content)
+    end
   end
 
   class CreateContextWiki < V 1.0
@@ -146,7 +151,6 @@ module ContextWiki::Models
       Page.drop_versioned_table
     end
   end
-
 end
 
 module ContextWiki::Controllers
@@ -160,6 +164,8 @@ module ContextWiki::Controllers
     def show(id)
       @user = User.find(id)
       render "user_show"
+    rescue
+      redirect R(Users)
     end
 
     # GET /users/new
@@ -184,6 +190,8 @@ module ContextWiki::Controllers
       @user = User.find(id)
       @groups = Group.find(:all)
       render "user_edit"
+    rescue
+      redirect R(Users)
     end
 
     # PUT /users/(id)
@@ -203,10 +211,13 @@ module ContextWiki::Controllers
       @user.attributes = input.user
       if @user.valid?
         @user.save
+        state.current_user = @user if current_user?(@user)
         render "user_show"
       else
         render "user_edit"
       end
+    rescue
+      redirect R(Users)
     end
 
     # DELETE /users/(id)
@@ -215,6 +226,8 @@ module ContextWiki::Controllers
       @user.destroy
       @users = User.find(:all)
       render "user_list"
+    rescue
+      redirect R(Users)
     end
   end
 
@@ -246,6 +259,8 @@ module ContextWiki::Controllers
     def show(id)
       @group = Group.find(id)
       render "group_show"
+    rescue
+      redirect R(Groups)
     end
 
     # DELETE /groups/(id)
@@ -254,6 +269,8 @@ module ContextWiki::Controllers
       @group.destroy
       @groups = Group.find(:all)
       render "group_list"
+    rescue
+      redirect R(Groups)
     end
   end
 
@@ -304,7 +321,20 @@ module ContextWiki::Controllers
     # GET /pages/(id)
     def show(id)
       @page = Page.find_by_name(id)
-      render "page_show"
+      if @page.nil?
+        @page = Page.new
+        @page.name = id
+        render "page_create"
+      elsif input.version
+        attributes = @page.find_version(input.version).attributes
+        attributes.delete("updated_at")
+        attributes.delete("page_id")
+        attributes[:version] = input.version
+        @page = Page.new( attributes )
+        render "page_show"
+      else
+        render "page_show"
+      end
     end
 
     # GET /pages/new
@@ -349,6 +379,15 @@ module ContextWiki::Controllers
       @pages = Page.find(:all, :limit => 20)
       render "page_list"
     end
+
+    # GET /pages/(id)/versions VERSIONS
+    methods[:version] = [:get]
+    def versions(id)
+      @page = Page.find_by_name(id)
+      render "page_versions"
+    rescue
+      redirect R(Pages)
+    end
   end
 
   class Index < R '/'
@@ -379,34 +418,32 @@ module ContextWiki::Views
   def layout
     xhtml_strict do
       head do
-        link :rel => 'stylesheet',
-             :type => 'text/css',
-             :href => '/static/stylesheets/application.css',
-             :media => 'screen'
+        link :rel => 'stylesheet', :type => 'text/css',
+             :href => '/static/stylesheets/rdoc-style.css'
         title "ContextWiki :: Camping Wiki using ContextR"
       end
       body do 
-        div.container! do
-          div.head! do
-            h1 "ContextWiki :: Camping Wiki using ContextR"
+        div.menu! do
+          ul.links! do
+            li { a "Index", :href => R(Index) }
+            li { a "Pages", :href => R(Pages) }
+            li { a "Users", :href => R(Users) }
+            li { a "Groups", :href => R(Groups) }
+            li { a "Sessions", :href => R(Sessions) }
           end
-          div.body! do
-            div.content! do
+          h3.title "ContextWiki :: Camping Wiki using ContextR"
+        end
+        div.fullpage! do
+          div.pager! do
+          end
+          div.page_shade do
+            div.page do
               self << yield
             end
-            div.navigation! do
-              ul.basic_navigation! do
-                li { a "Index", :href => R(Index) }
-                li { a "Pages", :href => R(Pages) }
-                li { a "Users", :href => R(Users) }
-                li { a "Groups", :href => R(Groups) }
-                li { a "Sessions", :href => R(Sessions) }
-              end
-            end
           end
-          div.foot! do
-            footer
-          end
+        end
+        div.foot! do
+          footer
         end
       end
     end
@@ -446,13 +483,16 @@ module ContextWiki::Views
       dt "Email"
       dd @user.email
 
+      dt "Standard Markup"
+      dd @user.std_markup
+
       dt "Created at"
       dd @user.created_at
 
       dt "Updated at"
       dd @user.updated_at
     end
-    ul do
+    ul.actions do
       li { a "Edit", :href => R(Users, @user.id, :edit) }
       li do
         form :action => R(Users, @user.id), :method => "post" do
@@ -497,6 +537,11 @@ module ContextWiki::Views
         br
         input :name => 'user[email]', :id => 'user_email', 
               :type => "text", :value => @user.email
+      end
+
+      fieldset do
+        legend "Standard Markup"
+        markup_choice((@user.std_markup || :html).to_s, "user", "std_markup")
       end
 
       p do
@@ -550,6 +595,11 @@ module ContextWiki::Views
             label group.name, :for => "user_groups_#{group.name}"
           end
         end
+      end
+
+      fieldset do
+        legend "Standard Markup"
+        markup_choice((@user.std_markup || :html).to_s, "user", "std_markup")
       end
 
       p do
@@ -614,12 +664,14 @@ module ContextWiki::Views
       dt "Updated at"
       dd @group.updated_at
     end
-    ul do
+    ul.actions do
       li do
         form :action => R(Groups, @group.id), :method => "post" do
-          http_verb("delete")
-          input :type => "submit", :value => "Delete"
-          text " this operation may not be reverted!"
+          div do
+            http_verb("delete")
+            input :type => "submit", :value => "Delete"
+            text " this operation may not be reverted!"
+          end
         end
       end
       li { a "Back to list", :href => R(Groups) }
@@ -676,7 +728,7 @@ module ContextWiki::Views
       thead do 
         tr do
           th "name"
-          th "revision"
+          th "version"
           th "owner"
           th "rights"
           th "markup"
@@ -700,10 +752,11 @@ module ContextWiki::Views
   def page_show
     h2 @page.name.titleize
     div.wiki_content do
-      @page.content
+      @page.rendered_content
     end
-    ul do
+    ul.actions do
       li { a "Edit", :href => R(Pages, @page.name, :edit) }
+      li { a "Older Versions", :href => R(Pages, @page.name, :versions) }
       li do
         form :action => R(Pages, @page.name), :method => "post" do
           p do
@@ -740,13 +793,13 @@ module ContextWiki::Views
 
   def page_edit
     form :action => R(Pages, @page.name), :method => "post" do
-      http_verb "put"
+      div { http_verb "put" }
       errors_for(@page)
 
       p do
         label "Name", :for => "page_name"
         br
-        strong @page.name
+        strong.page_name! @page.name
       end
 
       _page_form
@@ -759,38 +812,89 @@ module ContextWiki::Views
     end
   end
 
+  def page_versions
+    table do
+      thead do 
+        tr do
+          th "version"
+          th "owner"
+          th "rights"
+          th "markup"
+          th "updated at"
+        end
+      end
+      tbody do
+        @page.versions.each do | page |
+          tr do
+            td { a page.version , :href => R(Pages, page.name, 
+                                             {:version => page.version}) } 
+            td { page.user_id }
+            td { "%x" % page.rights }
+            td { page.markup }
+            td { page.updated_at.to_formatted_s(:short) }
+          end
+        end
+      end
+    end
+    p { a "Create new page", :href => R(Pages, "new") }
+  end
+
+  #############
+  # Partials
   def _page_form
     fieldset do
       legend "Markup"
-      ["HTML", "Markaby", "Markdown"].each do | markup |
-        p do
-          options = {:name => 'page[markup]', 
-                     :id => "page_markup_#{markup.downcase}", 
-                     :type => 'radio', :value => markup}
-          if (@page.markup.nil? and markup == "HTML") or 
-              @page.markup == markup
-            options[:checked] = "checked"
-          end
-
-          input(options)
-          label markup, :for => "page_markup_#{markup.downcase}"
-        end
-      end
+      markup_choice((@page.markup || 
+                     @current_user.try.std_markup || 
+                     :html).to_s, "page", "markup")
     end
 
     p do
       label "Content", :for => "page_content"
       br
-      textarea :name => 'page[content]', :id => 'page_content' do
-        text @page.content
-      end
+      textarea( :id => "page_content", :name => 'page[content]' ) { @page.content }
     end
   end
 end
 
 module ContextWiki::Helpers
   def footer 
+    div do
+      text "Powered by "
+      a "Camping", :href => "http://code.whytheluckystiff.net/camping/wiki"
+      text " &middot; "
+      a "SleepingBag", :href => "http://code.google.com/p/sleepingbag/"
+      text " &middot; "
+      a "ContextR", :href => "http://contextr.rubyforge.org/"
+    end
     text "Basic actions"
+  end
+
+  def textarea(options)
+    super(options.merge(:cols => 72, :rows => 25))
+  end
+
+  def markup_choice(default, var_name, field_name)
+    renderer.each do | markup |
+      p do
+        options = {:name => "#{var_name}[#{field_name}]", 
+                   :id => "#{var_name}_#{field_name}_#{markup}", 
+                   :type => 'radio', :value => markup}
+        if default == markup
+          options[:checked] = "checked"
+        end
+
+        input(options)
+        label markup, :for => "#{var_name}_#{field_name}_#{markup}"
+      end
+    end
+  end
+
+  def current_user
+    @current_user ||= state.current_user
+  end
+  def current_user?(user)
+    current_user.try.name == user.name
   end
 end
 
@@ -798,3 +902,5 @@ def ContextWiki.create
   ContextWiki::Models.create_schema :assume => 
         (ContextWiki::Models::Page.table_exists? ? 1.0 : 0.0)
 end
+
+puts "****************************** File wad reloaded ******************************"

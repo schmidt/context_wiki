@@ -33,4 +33,3 @@ module ContextCamping
     end
   end
 end
-
