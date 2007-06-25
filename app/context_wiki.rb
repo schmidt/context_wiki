@@ -16,10 +16,6 @@ module Camping::Session
 end
 
 
-%w{random editor admin known_user}.each { |layer|
-    load(File.dirname(__FILE__) + "/../layer/#{layer}.rb")}
-
-
 module ContextWiki
   include Camping::Session, ContextCamping, REST 
   Mab.set(:indent, 4)
@@ -57,7 +53,10 @@ module ContextWiki::Models
     end
 
     def self.authenticate(name, password)
-      User.find_by_name_and_hashed_password(name, self.build_hash(password))
+      User.find(:first, 
+                :conditions => {:name =>name, 
+                                :hashed_password => self.build_hash(password),
+                                :authenticated => true})
     end
 
     def self.build_hash(string)
@@ -172,8 +171,8 @@ module ContextWiki::Controllers
     def show(id)
       @user = User.find(id)
       render "user_show"
-    rescue
-      redirect R(Users)
+#    rescue
+#      redirect R(Users)
     end
 
     # GET /users/new
@@ -429,11 +428,7 @@ module ContextWiki::Views
       body do 
         div.menu! do
           ul.links! do
-            li { a "Index", :href => R(Index) }
-            li { a "Pages", :href => R(Pages) }
-            li { a "Users", :href => R(Users) }
-            li { a "Groups", :href => R(Groups) }
-            li { a "Sessions", :href => R(Sessions) }
+            _navigation_links
           end
           h3.title "ContextWiki :: Camping Wiki using ContextR"
         end
@@ -463,6 +458,7 @@ module ContextWiki::Views
         tr do
           th "name"
           th "std markup"
+          th "authenticated"
           th "created at"
         end
       end
@@ -471,6 +467,7 @@ module ContextWiki::Views
           tr do
             td { a user.id, :href => R(Users, user.id) } 
             td user.std_markup
+            td(user.authenticated ? "yes" : "no" )
             td user.created_at
           end
         end
@@ -489,6 +486,9 @@ module ContextWiki::Views
 
       dt "Standard Markup"
       dd @user.std_markup
+
+      dt "Authenticated"
+      dd(@user.authenticated ? "yes" : "no")
 
       dt "Created at"
       dd @user.created_at
@@ -581,6 +581,10 @@ module ContextWiki::Views
         br
         input :name => 'user[email]', :id => 'user_email', 
               :type => "text", :value => @user.email
+      end
+
+      p do
+        _authenticated_box
       end
 
       fieldset do
@@ -844,6 +848,18 @@ module ContextWiki::Views
   end
 
   #############
+  # Error related views
+  def not_authorized
+    h1 "Authorization Required"
+    p "This server could not verify that you
+    are authorized to access the document
+    requested.  Either you supplied the wrong
+    credentials (e.g., bad password), or your
+    browser doesn't understand how to supply
+    the credentials required."
+  end
+
+  #############
   # Partials
   def _page_form
     fieldset do
@@ -859,6 +875,23 @@ module ContextWiki::Views
       textarea( :id => "page_content", :name => 'page[content]' ) { @page.content }
     end
   end
+
+  def _authenticated_box
+    options = { :type => "checkbox", :name => "user[authenticated]",
+                :value => "true", :id => "user_authenticated" }
+    options[:checked] = "checked" if @user.authenticated
+    input(options)
+    label "Authenticated", :for => "user_authenticated"
+  end
+
+  def _navigation_links
+    li { a "Index", :href => R(Index) }
+    li { a "Pages", :href => R(Pages) }
+    li { a "Users", :href => R(Users) }
+    li { a "Groups", :href => R(Groups) }
+    li { a "Sessions", :href => R(Sessions) }
+  end
+
 end
 
 module ContextWiki::Helpers
@@ -906,5 +939,10 @@ def ContextWiki.create
   ContextWiki::Models.create_schema :assume => 
         (ContextWiki::Models::Page.table_exists? ? 1.0 : 0.0)
 end
+
+
+%w{random editor admin known_user}.each { |layer|
+    load(File.dirname(__FILE__) + "/../layer/#{layer}.rb")}
+
 
 puts "****************************** File wad reloaded ******************************"

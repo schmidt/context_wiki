@@ -19,9 +19,14 @@ module ContextCamping
     if @state.current_user
       layers << :known_user
       @current_user = @state.current_user
-      @current_user.groups.each do | group |
-        layers << group.name.singularize.to_sym
-      end
+      registered_groups = @current_user.groups.collect(&:name)
+    else
+      layers << :no_known_user
+      registered_groups = []
+    end
+    ContextWiki::Models::Group.find(:all).each do | group |
+      layers << ((registered_groups.include?(group.name) ? "" : "no_") + 
+                  group.name.singularize).to_sym
     end
     layers
   end
