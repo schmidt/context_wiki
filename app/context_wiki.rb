@@ -101,6 +101,14 @@ module ContextWiki::Models
     def rendered_content
       ContextWiki::RENDERER[self.markup.to_sym].render(self.content)
     end
+
+    def self.copy_from_version(version)
+      attributes = version.attributes
+      attributes.delete("updated_at")
+      attributes.delete("page_id")
+      attributes[:version] = version.version
+      Page.new( attributes )
+    end
   end
 
   class CreateContextWiki < V 1.0
@@ -326,11 +334,7 @@ module ContextWiki::Controllers
         @page.name = id
         render "page_create"
       elsif input.version
-        attributes = @page.find_version(input.version).attributes
-        attributes.delete("updated_at")
-        attributes.delete("page_id")
-        attributes[:version] = input.version
-        @page = Page.new( attributes )
+        @page = Page.copy_from_version(@page.find_version(input.version))
         render "page_show"
       else
         render "page_show"
@@ -756,7 +760,7 @@ module ContextWiki::Views
     end
     ul.actions do
       li { a "Edit", :href => R(Pages, @page.name, :edit) }
-      li { a "Older Versions", :href => R(Pages, @page.name, :versions) }
+      li { a "Other Versions", :href => R(Pages, @page.name, :versions) }
       li do
         form :action => R(Pages, @page.name), :method => "post" do
           p do
@@ -836,7 +840,7 @@ module ContextWiki::Views
         end
       end
     end
-    p { a "Create new page", :href => R(Pages, "new") }
+    p { a "Back to current version", :href => R(Pages, @page.name) }
   end
 
   #############
