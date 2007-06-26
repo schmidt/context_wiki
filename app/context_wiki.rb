@@ -619,11 +619,12 @@ module ContextWiki::Views
         _authenticated_box
       end
 
-
       fieldset do
         legend "Standard Markup"
         markup_choice((@user.std_markup || :html).to_s, "user", "std_markup")
       end
+
+      _group_memberships
 
       p do
         input :type => 'submit', :value => 'Change settings'

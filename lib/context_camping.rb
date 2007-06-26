@@ -39,10 +39,8 @@ module ContextCamping
   end
 
   def in_reset_context
-    y ContextR::layer_symbols
     ContextR::without_layers *ContextR::layer_symbols do
       ContextR::with_layers *compute_current_context do
-        y ContextR::layer_symbols
         @headers['x-contextr'] = ContextR::layer_symbols.join(" ")
         yield
       end
