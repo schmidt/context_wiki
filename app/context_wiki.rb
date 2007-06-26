@@ -18,7 +18,6 @@ end
 
 module ContextWiki
   include Camping::Session, ContextCamping, REST 
-  Mab.set(:indent, 4)
 end
 
 module ContextWiki::Models
@@ -28,11 +27,14 @@ module ContextWiki::Models
     has_many :groups, :through => :group_memberships
     has_many :pages
 
+    attr_protected :name, :authenticated, :hashed_password
+
     attr_accessor :password
     before_save :hash_password
 
     validates_presence_of :name, :email
     validates_uniqueness_of :name
+    validates_exclusion_of :name, :in => %w{new edit current}
     validates_length_of :name, :within => 2..25
     validates_format_of :name, :with => /[a-z]+/i
     validates_length_of :password, :within => 2..25, :if => :password_required?
@@ -50,6 +52,21 @@ module ContextWiki::Models
 
     def to_s
       self.name
+    end
+
+    def update_groups(new_groups = nil)
+      new_groups = new_groups.to_a.collect do | group_name |
+        Group.find(group_name)
+      end
+      old_groups = self.groups
+      (new_groups - old_groups).each do | group |
+        self.groups << group
+      end
+      (old_groups - new_groups).each do | group |
+        GroupMembership.delete_all(:group_id => group.id,
+                                    :user_id => self.id)
+      end
+      self.groups(:refresh)
     end
 
     def self.authenticate(name, password)
@@ -75,6 +92,7 @@ module ContextWiki::Models
 
     validates_length_of :name, :within => 2..25
     validates_format_of :name, :with => /[a-z]+/i
+    validates_exclusion_of :name, :in => %w{new edit}
 
     def to_s
       self.name
@@ -88,6 +106,7 @@ module ContextWiki::Models
     validates_uniqueness_of :name
     validates_format_of     :name, :with => /^[a-zA-Z0-9\-\.\_\~\!\*\'\(\)\+]+$/
     validates_length_of       :name, :within => 2..50
+    validates_exclusion_of     :name, :in => %w{new edit}
     validates_presence_of     :markup
     validates_presence_of     :user_id
     validates_numericality_of :rights
@@ -195,6 +214,7 @@ module ContextWiki::Controllers
     # GET /users/(id)/edit
     def edit(id)
       @user = User.find(id)
+      @user_id = @user.id 
       @groups = Group.find(:all)
       render "user_edit"
     rescue
@@ -204,17 +224,7 @@ module ContextWiki::Controllers
     # PUT /users/(id)
     def update(id)
       @user = User.find(id)
-      new_groups = input.user.delete("groups").to_a.collect do | group_name |
-        Group.find(group_name)
-      end
-      old_groups = @user.groups
-      (new_groups - old_groups).each do | group |
-        @user.groups << group
-      end
-      (old_groups - new_groups).each do | group |
-        GroupMembership.delete_all(:group_id => group.id,
-                                    :user_id => @user.id)
-      end
+      @user.update_groups(input.user.delete("groups"))
       @user.attributes = input.user
       if @user.valid?
         @user.save
@@ -233,6 +243,23 @@ module ContextWiki::Controllers
       @user.destroy
       @users = User.find(:all)
       render "user_list"
+    rescue
+      redirect R(Users)
+    end
+
+    methods[:current] = [:get, :put]
+    def current
+      @groups = Group.find(:all)
+      if @method == "put"
+        current_user.update_groups(input.user.delete("groups"))
+        current_user.attributes = input.user
+        if current_user.valid?
+          current_user.save
+        end
+      end
+      @user = current_user
+      @user_id = "current"
+      render "user_edit"
     rescue
       redirect R(Users)
     end
@@ -301,12 +328,14 @@ module ContextWiki::Controllers
     def create
       @current_user = User.authenticate(input.session.name, 
                                         input.session.password)
-      @state.current_user = @current_user unless @current_user.nil?
-      if @current_user.nil?
-        @error = true
-        render "session_create"
-      else
-        render "session_list"
+      @state.current_user = @current_user
+      in_reset_context do
+        if @current_user.nil?
+          @error = true
+          render "session_create"
+        else
+          render "session_list"
+        end
       end
     end
 
@@ -314,7 +343,9 @@ module ContextWiki::Controllers
     def destroy(id)
       @current_user = nil
       @state.current_user = @current_user 
-      render "session_list"
+      in_reset_context do
+        render "session_list"
+      end
     end
   end
 
@@ -368,6 +399,7 @@ module ContextWiki::Controllers
     def update(id)
       @page = Page.find_by_name(id)
       @page.update_attributes(input.page)
+      @page.user = current_user
       if @page.valid?
         @page.save
         render "page_show"
@@ -378,7 +410,8 @@ module ContextWiki::Controllers
 
     # DELETE /pages/(id)
     def destroy(id)
-      Page.delete_all(:name => id)
+      @page = Page.find_by_name(id)
+      @page.destroy
       @pages = Page.find(:all, :limit => 20)
       render "page_list"
     end
@@ -468,7 +501,7 @@ module ContextWiki::Views
             td { a user.id, :href => R(Users, user.id) } 
             td user.std_markup
             td(user.authenticated ? "yes" : "no" )
-            td user.created_at
+            td user.created_at.to_formatted_s(:db)
           end
         end
       end
@@ -491,10 +524,10 @@ module ContextWiki::Views
       dd(@user.authenticated ? "yes" : "no")
 
       dt "Created at"
-      dd @user.created_at
+      dd @user.created_at.to_formatted_s(:db)
 
       dt "Updated at"
-      dd @user.updated_at
+      dd @user.updated_at.to_formatted_s(:db)
     end
     ul.actions do
       li { a "Edit", :href => R(Users, @user.id, :edit) }
@@ -557,7 +590,7 @@ module ContextWiki::Views
   end
 
   def user_edit
-    form :action => R(Users, @user.id), :method => :post do
+    form :action => R(Users, @user_id), :method => :post do
       errors_for @user
 
       p do
@@ -634,7 +667,7 @@ module ContextWiki::Views
           tr do
             td { a group.name , :href => R(Groups, group.name) } 
             td group.group_memberships.size
-            td group.created_at
+            td group.created_at.to_formatted_s(:db)
           end
         end
       end
@@ -667,10 +700,10 @@ module ContextWiki::Views
       dd @group.name
 
       dt "Created at"
-      dd @group.created_at
+      dd @group.created_at.to_formatted_s(:db)
 
       dt "Updated at"
-      dd @group.updated_at
+      dd @group.updated_at.to_formatted_s(:db)
     end
     ul.actions do
       li do
@@ -705,7 +738,11 @@ module ContextWiki::Views
       end
     else
       p "You are not logged in."
-      p { a "Log in", :href => R(Sessions, :new) }
+      p do 
+        a "Log in", :href => R(Sessions, :new) 
+        text " or "
+        a "Register", :href => R(Users, :new) 
+      end
     end
   end
 
@@ -839,7 +876,7 @@ module ContextWiki::Views
             td { page.user_id }
             td { "%x" % page.rights }
             td { page.markup }
-            td { page.updated_at.to_formatted_s(:short) }
+            td { page.updated_at.to_formatted_s(:db) }
           end
         end
       end
@@ -941,7 +978,7 @@ def ContextWiki.create
 end
 
 
-%w{random editor admin known_user}.each { |layer|
+%w{general acl random editor admin known_user}.each { |layer|
     load(File.dirname(__FILE__) + "/../layer/#{layer}.rb")}
 
 

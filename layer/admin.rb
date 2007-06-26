@@ -1,39 +1,3 @@
-module UnAuthorized
-  def unautorize(method_names)
-    method_names.each do | method_name |
-      define_method method_name.to_sym do | *a |
-        @receiver.instance_eval do
-          @status = 401
-          "test"
-          render "not_authorized"
-        end
-      end
-    end
-  end
-end
-
-class ContextWiki::Controllers::Groups
-  module NoAdminMethods
-    self.extend(UnAuthorized)
-    unautorize(%w{get post put delete})
-  end
-  register NoAdminMethods => ContextR::NoAdminLayer
-end
-class ContextWiki::Controllers::Users
-  module NoAdminMethods
-    self.extend(UnAuthorized)
-    unautorize(%w{delete})
-  end
-  register NoAdminMethods => ContextR::NoAdminLayer
-end
-class ContextWiki::Controllers::Pages
-  module NoAdminMethods
-    self.extend(UnAuthorized)
-    unautorize(%w{delete})
-  end
-  register NoAdminMethods => ContextR::NoAdminLayer
-end
-
 module ContextWiki::Views
   module NoAdminViews
     def _navigation_links
