@@ -183,15 +183,15 @@ module ContextWiki::Controllers
   class Users < REST('users')
     # GET /users
     def index
-      @users = User.find(:all)
+      @users = User.find(:all, :order => "name")
       render "user_list"
     end
     # GET /users/(id)
     def show(id)
       @user = User.find(id)
       render "user_show"
-#    rescue
-#      redirect R(Users)
+    rescue
+      redirect R(Users)
     end
 
     # GET /users/new
@@ -226,6 +226,7 @@ module ContextWiki::Controllers
       @user = User.find(id)
       @user.update_groups(input.user.delete("groups"))
       @user.attributes = input.user
+      @user.authenticated = !!input.user.authenticated
       if @user.valid?
         @user.save
         state.current_user = @user if current_user?(@user)
@@ -241,7 +242,7 @@ module ContextWiki::Controllers
     def destroy(id)
       @user = User.find(id)
       @user.destroy
-      @users = User.find(:all)
+      @users = User.find(:all, :order => "name")
       render "user_list"
     rescue
       redirect R(Users)
@@ -268,7 +269,7 @@ module ContextWiki::Controllers
   class Groups < REST('groups')
     # GET /group
     def index
-      @groups = Group.find(:all)
+      @groups = Group.find(:all, :order => "name")
       render "group_list"
     end
 
@@ -352,7 +353,7 @@ module ContextWiki::Controllers
   class Pages < REST('pages')
     # GET /pages
     def index
-      @pages = Page.find(:all, :limit => 20)
+      @pages = Page.find(:all, :order => "name")
       render "page_list"
     end
 
@@ -362,7 +363,7 @@ module ContextWiki::Controllers
       if @page.nil?
         @page = Page.new
         @page.name = id
-        render "page_create"
+        redirect R(Pages, id, :edit)
       elsif input.version
         @page = Page.copy_from_version(@page.find_version(input.version))
         render "page_show"
@@ -412,7 +413,7 @@ module ContextWiki::Controllers
     def destroy(id)
       @page = Page.find_by_name(id)
       @page.destroy
-      @pages = Page.find(:all, :limit => 20)
+      @pages = Page.find(:all, :order => "name")
       render "page_list"
     end
 
@@ -428,9 +429,8 @@ module ContextWiki::Controllers
 
   class Index < R '/'
     def get
-      render "index"
+      redirect R(Pages, "index")
     end
-
   end
 
   class Static < R '/static/(.+)'         
@@ -481,10 +481,6 @@ module ContextWiki::Views
     end
   end
 
-  def index
-    p "Welcome to our shiny, tiny wiki system."
-  end
-
   def user_list
     table do
       thead do 
@@ -506,7 +502,6 @@ module ContextWiki::Views
         end
       end
     end
-    p { a "Create new user", :href => R(Users, "new") }
   end
 
   def user_show
@@ -529,9 +524,13 @@ module ContextWiki::Views
       dt "Updated at"
       dd @user.updated_at.to_formatted_s(:db)
     end
+    _user_show_footer
+  end
+
+  def _user_show_footer
     ul.actions do
-      li { a "Edit", :href => R(Users, @user.id, :edit) }
-      li do
+      li.edit { a "Edit", :href => R(Users, @user.id, :edit) }
+      li.delete do
         form :action => R(Users, @user.id), :method => "post" do
           p do
             http_verb("delete")
@@ -540,7 +539,7 @@ module ContextWiki::Views
           end
         end
       end
-      li { a "Back to list", :href => R(Users) }
+      li.list { a "Back to list", :href => R(Users) }
     end
   end
 
@@ -620,23 +619,6 @@ module ContextWiki::Views
         _authenticated_box
       end
 
-      fieldset do
-        legend "Group Memberships"
-        @groups.each do | group |
-          p do
-            if @user.groups.include?(group)
-              input :type => "checkbox", :name => "user[groups]",
-                    :value => "#{group.name}",
-                    :id => "user_groups_#{group.name}", :checked => "checked"
-            else
-              input :type => "checkbox", :name => "user[groups]",
-                    :value => "#{group.name}",
-                    :id => "user_groups_#{group.name}"
-            end
-            label group.name, :for => "user_groups_#{group.name}"
-          end
-        end
-      end
 
       fieldset do
         legend "Standard Markup"
@@ -647,6 +629,26 @@ module ContextWiki::Views
         input :type => 'submit', :value => 'Change settings'
         text " "
         a "Back", :href => R(Users, @user.name)
+      end
+    end
+  end
+
+  def _group_memberships
+    fieldset do
+      legend "Group Memberships"
+      @groups.each do | group |
+        p do
+          if @user.groups.include?(group)
+            input :type => "checkbox", :name => "user[groups]",
+                  :value => "#{group.name}",
+                  :id => "user_groups_#{group.name}", :checked => "checked"
+          else
+            input :type => "checkbox", :name => "user[groups]",
+                  :value => "#{group.name}",
+                  :id => "user_groups_#{group.name}"
+          end
+          label group.name, :for => "user_groups_#{group.name}"
+        end
       end
     end
   end
@@ -725,7 +727,7 @@ module ContextWiki::Views
   def session_list
     if @current_user
       p do
-        text "You are successfully logged in."
+        text "You are now logged in."
         text "Your user name is "
         em(@current_user.name)
         text "."
@@ -740,8 +742,6 @@ module ContextWiki::Views
       p "You are not logged in."
       p do 
         a "Log in", :href => R(Sessions, :new) 
-        text " or "
-        a "Register", :href => R(Users, :new) 
       end
     end
   end
@@ -774,8 +774,7 @@ module ContextWiki::Views
         tr do
           th "name"
           th "version"
-          th "owner"
-          th "rights"
+          th "author"
           th "markup"
         end
       end
@@ -785,13 +784,12 @@ module ContextWiki::Views
             td { a page.name , :href => R(Pages, page.name) } 
             td { page.version }
             td { page.user }
-            td { "%x" % page.rights }
             td { page.markup }
           end
         end
       end
     end
-    p { a "Create new page", :href => R(Pages, "new") }
+    p.create { a "Create new page", :href => R(Pages, "new") }
   end
 
   def page_show
@@ -799,10 +797,24 @@ module ContextWiki::Views
     div.wiki_content do
       @page.rendered_content
     end
+    dl.page_meta do
+      dt "Author"
+      dd @page.user
+
+      dt "Version"
+      dd @page.version
+
+      dt "Last change"
+      dd @page.versions.last.updated_at.to_formatted_s(:db)
+    end
+    _page_show_footer
+  end
+
+  def _page_show_footer
     ul.actions do
-      li { a "Edit", :href => R(Pages, @page.name, :edit) }
-      li { a "Other Versions", :href => R(Pages, @page.name, :versions) }
-      li do
+      li.edit { a "Edit", :href => R(Pages, @page.name, :edit) }
+      li.others { a "Other Versions", :href => R(Pages, @page.name, :versions) }
+      li.delete do
         form :action => R(Pages, @page.name), :method => "post" do
           p do
             http_verb("delete")
@@ -811,7 +823,7 @@ module ContextWiki::Views
           end
         end
       end
-      li { a "Back to list", :href => R(Pages) }
+      li.list { a "Back to list", :href => R(Pages) }
     end
   end
 
@@ -828,7 +840,7 @@ module ContextWiki::Views
 
       _page_form
 
-      p do 
+      p.create do 
         input :type => "submit", :value => "Create Page"
         text " "
         a "Back", :href => R(Pages)
@@ -863,7 +875,6 @@ module ContextWiki::Views
         tr do
           th "version"
           th "owner"
-          th "rights"
           th "markup"
           th "updated at"
         end
@@ -874,7 +885,6 @@ module ContextWiki::Views
             td { a page.version , :href => R(Pages, page.name, 
                                              {:version => page.version}) } 
             td { page.user_id }
-            td { "%x" % page.rights }
             td { page.markup }
             td { page.updated_at.to_formatted_s(:db) }
           end
@@ -914,19 +924,23 @@ module ContextWiki::Views
   end
 
   def _authenticated_box
-    options = { :type => "checkbox", :name => "user[authenticated]",
-                :value => "true", :id => "user_authenticated" }
-    options[:checked] = "checked" if @user.authenticated
-    input(options)
-    label "Authenticated", :for => "user_authenticated"
+    if @user_id != "current" 
+      options = { :type => "checkbox", :name => "user[authenticated]",
+                  :value => "true", :id => "user_authenticated" }
+      options[:checked] = "checked" if @user.authenticated
+      input(options)
+      label "Authenticated", :for => "user_authenticated"
+    end
   end
 
   def _navigation_links
-    li { a "Index", :href => R(Index) }
-    li { a "Pages", :href => R(Pages) }
-    li { a "Users", :href => R(Users) }
-    li { a "Groups", :href => R(Groups) }
-    li { a "Sessions", :href => R(Sessions) }
+    li.index   { a "Index", :href => R(Index) }
+    li.pages   { a "All Pages", :href => R(Pages) }
+    li.groups  { a "All Groups", :href => R(Groups) }
+    li.users   { a "All Users", :href => R(Users) }
+    li.profile { a "My Profile (#{current_user.try.name})", 
+                   :href => R(Users, :current) }
+    li.session { a "Session", :href => R(Sessions) }
   end
 
 end

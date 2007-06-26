@@ -121,3 +121,19 @@
       padding: 0;
       margin: 0;
     }
+
+    dl.page_meta {
+      border-top: thin solid #998833;
+      border-bottom: thin solid #998833;
+    }
+    dl.page_meta dd, dl.page_meta dt {
+      display: inline;
+      margin: 0;
+      padding: 0;
+    }
+    dl.page_meta dt:after {
+      content: ":"
+    }
+    dl.page_meta dd {
+      padding: 0 2em 0 0.3em;
+    }

@@ -1,15 +1,31 @@
+class ContextWiki::Models::User
+  module NoAdminUserModel
+    def update_groups(new_groups = nil)
+    end
+  end
+  register NoAdminUserModel => ContextR::NoAdminLayer
+end
+
 module ContextWiki::Views
   module NoAdminViews
-    def _navigation_links
-      @receiver.capture do
+    def _user_show_footer
+      @receiver << @receiver.capture do
         yield
-      end.gsub( @receiver.capture do
-        li { a "Groups", :href => R(ContextWiki::Controllers::Groups) }
-      end, "")
+      end.gsub(/<li class="(edit|delete)">.*?<\/li>/, "")
     end
-    def _authenticated_box
-      ""
+
+    def _group_memberships
     end
+
+    def _navigation_links
+      @receiver << @receiver.capture do
+        yield
+      end.gsub(/<li class="groups">.*?<\/li>/, "")
+    end
+
+#    def _authenticated_box
+#      ""
+#    end
   end
   register NoAdminViews => ContextR::NoAdminLayer
 end
