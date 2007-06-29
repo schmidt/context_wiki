@@ -468,7 +468,7 @@ module ContextWiki::Views
     xhtml_strict do
       head do
         link :rel => 'stylesheet', :type => 'text/css',
-             :href => '/static/stylesheets/rdoc-style.css'
+             :href => '/static/stylesheets/application.css'
         title "ContextWiki :: Camping Wiki using ContextR"
         %w{prototype builder application}.each do | lib |
           script :type => "text/javascript", 
