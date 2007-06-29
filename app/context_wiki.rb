@@ -120,6 +120,12 @@ module ContextWiki::Models
       ContextWiki::RENDERER[self.markup.to_sym].render(self.content)
     end
 
+    def self.new_for_render(options)
+      p = Page.new :content => options.content, :markup => options.markup
+      p.name = options.name
+      p
+    end
+
     def self.copy_from_version(version)
       attributes = version.attributes
       attributes.delete("updated_at")
@@ -425,6 +431,13 @@ module ContextWiki::Controllers
     rescue
       redirect R(Pages)
     end
+
+    methods[:preview] = [:post]
+    def preview
+      puts "I was here"
+      @page = Page.new_for_render(input.page)
+      render "_page_body"
+    end
   end
 
   class Index < R '/'
@@ -457,6 +470,10 @@ module ContextWiki::Views
         link :rel => 'stylesheet', :type => 'text/css',
              :href => '/static/stylesheets/rdoc-style.css'
         title "ContextWiki :: Camping Wiki using ContextR"
+        %w{prototype builder application}.each do | lib |
+          script :type => "text/javascript", 
+                 :src => "/static/javascripts/#{lib}.js"
+        end
       end
       body do 
         div.menu! do
@@ -527,22 +544,6 @@ module ContextWiki::Views
     _user_show_footer
   end
 
-  def _user_show_footer
-    ul.actions do
-      li.edit { a "Edit", :href => R(Users, @user.id, :edit) }
-      li.delete do
-        form :action => R(Users, @user.id), :method => "post" do
-          p do
-            http_verb("delete")
-            input :type => "submit", :value => "Delete"
-            text " this operation may not be reverted!"
-          end
-        end
-      end
-      li.list { a "Back to list", :href => R(Users) }
-    end
-  end
-
   def user_create
     form :action => R(Users), :method => :post do
       errors_for @user
@@ -554,34 +555,10 @@ module ContextWiki::Views
               :type => 'text', :value => @user.name
       end
 
-      p do
-        label "Password", :for => "user_password"
-        br
-        input :name => 'user[password]', :id => 'user_password', 
-              :type => 'password'
-      end
+      _user_form
 
       p do
-        label "Password Confimation", :for => "user_password_confirmation"
-        br
-        input :name => 'user[password_confirmation]', 
-              :id => 'user_password_confirmation', :type => 'password'
-      end 
-
-      p do
-        label "Email", :for => "user_email"
-        br
-        input :name => 'user[email]', :id => 'user_email', 
-              :type => "text", :value => @user.email
-      end
-
-      fieldset do
-        legend "Standard Markup"
-        markup_choice((@user.std_markup || :html).to_s, "user", "std_markup")
-      end
-
-      p do
-        input :type => 'submit', :value => 'Create Account'
+        input :type => 'submit', :class => "submit", :value => 'Create Account'
         text " "
         a "Back", :href => R(Users)
       end
@@ -592,64 +569,15 @@ module ContextWiki::Views
     form :action => R(Users, @user_id), :method => :post do
       errors_for @user
 
-      p do
-        http_verb "put"
-
-        label "Password", :for => "user_password"
-        br
-        input :name => 'user[password]', :id => 'user_password', 
-              :type => 'password'
-      end
+      div { http_verb "put" }
       
-      p do
-        label "Password Confimation", :for => "user_password_confirmation"
-        br
-        input :name => 'user[password_confirmation]', 
-              :id => 'user_password_confirmation', :type => 'password'
-      end
-
-      p do
-        label "Email", :for => "user_email"
-        br
-        input :name => 'user[email]', :id => 'user_email', 
-              :type => "text", :value => @user.email
-      end
-
-      p do
-        _authenticated_box
-      end
-
-      fieldset do
-        legend "Standard Markup"
-        markup_choice((@user.std_markup || :html).to_s, "user", "std_markup")
-      end
-
+      _user_form
       _group_memberships
 
       p do
-        input :type => 'submit', :value => 'Change settings'
+        input :type => 'submit', :class => "submit", :value => 'Change settings'
         text " "
         a "Back", :href => R(Users, @user.name)
-      end
-    end
-  end
-
-  def _group_memberships
-    fieldset do
-      legend "Group Memberships"
-      @groups.each do | group |
-        p do
-          if @user.groups.include?(group)
-            input :type => "checkbox", :name => "user[groups]",
-                  :value => "#{group.name}",
-                  :id => "user_groups_#{group.name}", :checked => "checked"
-          else
-            input :type => "checkbox", :name => "user[groups]",
-                  :value => "#{group.name}",
-                  :id => "user_groups_#{group.name}"
-          end
-          label group.name, :for => "user_groups_#{group.name}"
-        end
       end
     end
   end
@@ -690,7 +618,7 @@ module ContextWiki::Views
       end
 
       p do
-        input :type => 'submit', :value => 'Create Group'
+        input :type => 'submit', :class => "submit", :value => 'Create Group'
         text " "
         a "Back", :href => R(Groups)
       end
@@ -713,7 +641,7 @@ module ContextWiki::Views
         form :action => R(Groups, @group.id), :method => "post" do
           div do
             http_verb("delete")
-            input :type => "submit", :value => "Delete"
+            input :type => "submit", :class => "submit", :value => "Delete"
             text " this operation may not be reverted!"
           end
         end
@@ -728,15 +656,14 @@ module ContextWiki::Views
   def session_list
     if @current_user
       p do
-        text "You are now logged in."
-        text "Your user name is "
+        text "You are now logged in. Your user name is " 
         em(@current_user.name)
         text "."
       end
       form :action => R(Sessions, @current_user.id), :method => "post" do
         p do
           http_verb("delete")
-          input :type => "submit", :value => "Log out"
+          input :type => "submit", :class => "submit", :value => "Log out"
         end
       end
     else
@@ -753,7 +680,8 @@ module ContextWiki::Views
       p do
         label "User name", :for => "session_name"
         br
-        input :type => "text", :name => "session[name]", :id => "session_name"
+        input :type => "text", :class => "text", :name => "session[name]", 
+              :id => "session_name"
       end
 
       p do
@@ -763,7 +691,7 @@ module ContextWiki::Views
               :id => "session_password"
       end
 
-      p { input :type => "submit", :value => "Log in" }
+      p { input :type => "submit", :class => "submit", :value => "Log in" }
     end
   end
 
@@ -794,10 +722,7 @@ module ContextWiki::Views
   end
 
   def page_show
-    h2 @page.name.titleize
-    div.wiki_content do
-      @page.rendered_content
-    end
+    _page_body
     dl.page_meta do
       dt "Author"
       dd @page.user
@@ -811,25 +736,8 @@ module ContextWiki::Views
     _page_show_footer
   end
 
-  def _page_show_footer
-    ul.actions do
-      li.edit { a "Edit", :href => R(Pages, @page.name, :edit) }
-      li.others { a "Other Versions", :href => R(Pages, @page.name, :versions) }
-      li.delete do
-        form :action => R(Pages, @page.name), :method => "post" do
-          p do
-            http_verb("delete")
-            input :type => "submit", :value => "Delete"
-            text " this operation may not be reverted!"
-          end
-        end
-      end
-      li.list { a "Back to list", :href => R(Pages) }
-    end
-  end
-
   def page_create
-    form :action => R(Pages), :method => "post" do
+    form :action => R(Pages), :method => "post", :id => "page_form" do
       errors_for(@page)
 
       p do
@@ -842,15 +750,18 @@ module ContextWiki::Views
       _page_form
 
       p.create do 
-        input :type => "submit", :value => "Create Page"
+        input :type => "submit", :class => "submit", :value => "Create Page"
         text " "
         a "Back", :href => R(Pages)
       end
+
+      div.preview! ""
     end
   end
 
   def page_edit
-    form :action => R(Pages, @page.name), :method => "post" do
+    form :action => R(Pages, @page.name), 
+         :method => "post", :id => "page_form" do
       div { http_verb "put" }
       errors_for(@page)
 
@@ -863,10 +774,12 @@ module ContextWiki::Views
       _page_form
 
       p do 
-        input :type => "submit", :value => "Change Page"
+        input :type => "submit", :class => "submit", :value => "Change Page"
         text " "
-        a "Back", :href => R(Pages)
+        a "Back", :href => R(Pages, @page.name)
       end
+
+      div.preview! ""
     end
   end
 
@@ -909,6 +822,108 @@ module ContextWiki::Views
 
   #############
   # Partials
+  def _user_show_footer
+    ul.actions do
+      li.edit { a "Edit", :href => R(Users, @user.id, :edit) }
+      li.delete do
+        form :action => R(Users, @user.id), :method => "post" do
+          p do
+            http_verb("delete")
+            input :type => "submit", :class => "submit", :value => "Delete"
+            text " this operation may not be reverted!"
+          end
+        end
+      end
+      li.list { a "Back to list", :href => R(Users) }
+    end
+  end
+
+  def _user_form
+    p do
+      label "Password", :for => "user_password"
+      br
+      input :name => 'user[password]', :id => 'user_password', 
+            :type => 'password'
+    end
+
+    p do
+      label "Password Confimation", :for => "user_password_confirmation"
+      br
+      input :name => 'user[password_confirmation]', 
+            :id => 'user_password_confirmation', :type => 'password'
+    end 
+
+    p do
+      label "Email", :for => "user_email"
+      br
+      input :name => 'user[email]', :id => 'user_email', 
+            :type => "text", :class => "text", :value => @user.email
+    end
+
+    _authenticated_box
+
+    fieldset do
+      legend "Standard Markup"
+      markup_choice((@user.std_markup || :html).to_s, "user", "std_markup")
+    end
+  end
+
+  def _authenticated_box
+    if @user_id != "current" and not @user.new_record? 
+      options = { :type => "checkbox", :name => "user[authenticated]",
+                  :value => "true", :id => "user_authenticated" }
+      options[:checked] = "checked" if @user.authenticated
+      p do
+        input(options)
+        label "Authenticated", :for => "user_authenticated"
+      end
+    end
+  end
+
+  def _group_memberships
+    fieldset do
+      legend "Group Memberships"
+      @groups.each do | group |
+        p do
+          if @user.groups.include?(group)
+            input :type => "checkbox", :name => "user[groups]",
+                  :value => "#{group.name}",
+                  :id => "user_groups_#{group.name}", :checked => "checked"
+          else
+            input :type => "checkbox", :name => "user[groups]",
+                  :value => "#{group.name}",
+                  :id => "user_groups_#{group.name}"
+          end
+          label group.name, :for => "user_groups_#{group.name}"
+        end
+      end
+    end
+  end
+
+  def _page_body
+    h2 @page.name.titleize
+    div.wiki_content do
+      @page.rendered_content
+    end
+  end
+
+  def _page_show_footer
+    ul.actions do
+      li.edit { a "Edit", :href => R(Pages, @page.name, :edit) }
+      li.others { a "Other Versions", :href => R(Pages, @page.name, :versions) }
+      li.delete do
+        form :action => R(Pages, @page.name), :method => "post" do
+          p do
+            http_verb("delete")
+            input :type => "submit", :class => "submit", :value => "Delete"
+            text " this operation may not be reverted!"
+          end
+        end
+      end
+      li.list { a "Back to list", :href => R(Pages) }
+    end
+  end
+
   def _page_form
     fieldset do
       legend "Markup"
@@ -920,17 +935,8 @@ module ContextWiki::Views
     p do
       label "Content", :for => "page_content"
       br
-      textarea( :id => "page_content", :name => 'page[content]' ) { @page.content }
-    end
-  end
-
-  def _authenticated_box
-    if @user_id != "current" 
-      options = { :type => "checkbox", :name => "user[authenticated]",
-                  :value => "true", :id => "user_authenticated" }
-      options[:checked] = "checked" if @user.authenticated
-      input(options)
-      label "Authenticated", :for => "user_authenticated"
+      textarea(:id => "page_content", 
+               :name => 'page[content]' ) { @page.content }
     end
   end
 
