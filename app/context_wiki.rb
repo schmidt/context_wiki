@@ -125,7 +125,7 @@ module ContextWiki::Models
       attributes.delete("updated_at")
       attributes.delete("page_id")
       attributes[:version] = version.version
-      Page.new( attributes )
+      Page.new(attributes.merge(:versions => [version]))
     end
   end
 

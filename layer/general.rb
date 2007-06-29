@@ -23,9 +23,9 @@ module UnAuthorized
         path = arguments.join "/"
         path = "" if path.empty?
         if path =~ #{allowed_methods}
-          yield(*arguments)
+          yield(:next, *arguments)
         else
-          @receiver.instance_eval do
+          yield(:receiver).instance_eval do
             @status = 401
             render "not_authorized"
           end
@@ -40,12 +40,12 @@ module UnAuthorized
         path = arguments.join "/"
         path = "" if path.empty?
         if path =~ #{restricted_methods}
-          @receiver.instance_eval do
+          yield(:receiver).instance_eval do
             @status = 401
             render "not_authorized"
           end
         else
-          yield(*arguments)
+          yield(:next, *arguments)
         end
       end
     }, __FILE__, __LINE__
