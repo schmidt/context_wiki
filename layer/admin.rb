@@ -34,7 +34,7 @@ module ContextWiki::Helpers
   module AdminHelpers
     def footer
       yield(:receiver).capture do
-        yield(:receiver)
+        yield(:next)
       end + yield(:receiver).capture do
         text " &middot; "
         text "Admin actions"
