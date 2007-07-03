@@ -18,6 +18,7 @@ end
 
 module ContextWiki
   include Camping::Session, ContextCamping, REST 
+#  include Camping::Session, REST
 end
 
 module ContextWiki::Models
@@ -137,33 +138,33 @@ module ContextWiki::Models
 
   class CreateContextWiki < V 1.0
     def self.up
-      create_table :contextwiki_users, :id => false, :force => true do | t |
+      create_table :contextwiki_users, :id => false do | t |
         t.column :name,            :string,  :limit => 25,      :null => false
         t.column :hashed_password, :string,  :limit => 32,      :null => false
         t.column :email,           :string,  :limit => 255,     :null => false
         t.column :std_markup,      :string,  :limit => 10
         t.column :authenticated,   :boolean, :default => false, :null => false
         t.column :created_at,      :timestamp
-        t.column :updated_at,      :timespamp
+        t.column :updated_at,      :timestamp
       end
       add_index :contextwiki_users, :name, :unique => true
 
       create_table :contextwiki_group_memberships, 
-                   :id => false, :force => true do | t |
+                   :id => false do | t |
         t.column :group_id, :string, :limit => 25, :null => false
         t.column :user_id,  :string, :limit => 25, :null => false
       end
       add_index(:contextwiki_group_memberships, [:group_id, :user_id], 
                                                           :unique => true)
 
-      create_table :contextwiki_groups, :id => false, :force => true do | t |
+      create_table :contextwiki_groups, :id => false do | t |
         t.column :name, :string, :limit => 25, :null => false
         t.column :created_at, :timestamp
-        t.column :updated_at, :timespamp
+        t.column :updated_at, :timestamp
       end
       add_index :contextwiki_groups, :name, :unique => true
 
-      create_table :contextwiki_pages, :force => true do | t |
+      create_table :contextwiki_pages do | t |
         t.column :name,     :string,  :limit => 50, :null => false
         t.column :content,  :text
         t.column :markup,   :string,  :limit => 10, :null => false
@@ -1003,4 +1004,29 @@ end
     load(File.dirname(__FILE__) + "/../layer/#{layer}.rb")}
 
 
-puts "****************************** File wad reloaded ******************************"
+if __FILE__ == $0
+  require 'mongrel'
+  require 'mongrel/camping'
+  ContextWiki::Models::Base.establish_connection :adapter => 'mysql', 
+                            :database => 'camping',
+                            :username => 'root',
+                            :password => ''
+
+#  ContextWiki::Models::Base.logger = Logger.new('camping.log')
+#  ContextWiki::Models::Base.logger.level = Logger::WARN 
+
+  ContextWiki::Models::Base.threaded_connections = false
+  ContextWiki.create
+
+  server = Mongrel::Camping::start("0.0.0.0", 3301, "/", ContextWiki)
+  puts "** ContextWiki is running at http://localhost:3301/"
+  server.run.join
+
+
+else
+  # enable logging
+  module ContextCamping
+    include ContextLogging
+  end
+  puts "****************************** File wad reloaded ******************************"
+end

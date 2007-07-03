@@ -12,7 +12,6 @@ module ContextLogging
 end
 
 module ContextCamping
-  include ContextLogging
   def compute_current_context
     layers = []
     layers << :random if rand(0).round.zero?
