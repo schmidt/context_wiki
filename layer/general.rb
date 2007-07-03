@@ -51,3 +51,31 @@ module UnAuthorized
     }, __FILE__, __LINE__
   end
 end
+
+module Manipulation
+  def manipulate(context, &instructions)
+    receiver = context.call(:receiver)
+    original_document = receiver.capture do
+      context.call(:next)
+    end
+    receiver << Lilu::Renderer.new(instructions, original_document).execute
+  end
+
+  def prepend(context, &instructions)
+    receiver = context.call(:receiver)
+    original_document = receiver.capture do
+      context.call(:next)
+    end
+    extension = receiver.capture(&instructions)
+    receiver << extension + original_document
+  end
+
+  def append(context, &instructions)
+    receiver = context.call(:receiver)
+    original_document = receiver.capture do
+      context.call(:next)
+    end
+    extension = receiver.capture(&instructions)
+    receiver << original_document + extension
+  end
+end

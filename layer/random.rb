@@ -1,9 +1,9 @@
 module ContextWiki::Helpers
   module RandomHelpers
-    def footer
-      yield(:receiver).capture do
-        yield(:next)
-      end + yield(:receiver).capture do
+    include Manipulation
+
+    def footer(&context)
+      append(context) do
         text " &middot; "
         text "Random actions"
       end

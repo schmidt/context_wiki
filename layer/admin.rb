@@ -8,19 +8,21 @@ end
 
 module ContextWiki::Views
   module NoAdminViews
-    def _user_show_footer
-      yield(:receiver) << yield(:receiver).capture do
-        yield(:next)
-      end.gsub(/<li class="(edit|delete)">.*?<\/li>/, "")
+    include Manipulation
+    def _user_show_footer(&context)
+      manipulate(context) do
+        remove("li.edit")
+        remove("li.delete")
+      end
     end
 
     def _group_memberships
     end
 
-    def _navigation_links
-      yield(:receiver) << yield(:receiver).capture do
-        yield(:next)
-      end.gsub(/<li class="groups">.*?<\/li>/, "")
+    def _navigation_links(&context)
+      manipulate(context) do
+        remove("li.groups")
+      end
     end
 
 #    def _authenticated_box
@@ -32,10 +34,10 @@ end
 
 module ContextWiki::Helpers
   module AdminHelpers
-    def footer
-      yield(:receiver).capture do
-        yield(:next)
-      end + yield(:receiver).capture do
+    include Manipulation
+
+    def footer(&context)
+      append(context) do
         text " &middot; "
         text "Admin actions"
       end
