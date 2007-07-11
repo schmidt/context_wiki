@@ -24,10 +24,6 @@ module ContextWiki::Views
         remove("li.groups")
       end
     end
-
-#    def _authenticated_box
-#      ""
-#    end
   end
   register NoAdminViews => ContextR::NoAdminLayer
 end

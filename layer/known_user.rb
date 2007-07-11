@@ -4,13 +4,11 @@ module ContextWiki::Views
     def _navigation_links(&context)
       manipulate(context) do
         update("li.profile a").with(
-                          self => "Sign Up",
-#                          :href => R(ContextWiki::Controllers::Users, :new))
-                          :href => '/users/new')
+                          text => "Sign Up",
+                          :href => R(ContextWiki::Controllers::Users, :new))
         update("li.session a").with(
-                          self => "Log in",
-#                          :href => R(ContextWiki::Controllers::Sessions, :new))
-                          :href => "/sessions/new")
+                          text => "Log in",
+                          :href => R(ContextWiki::Controllers::Sessions, :new))
         remove("li.users")
       end
     end
@@ -20,7 +18,7 @@ module ContextWiki::Views
     include Manipulation
     def _navigation_links(&context)
       manipulate(context) do
-        update("li.session a").with self => "Log Out"
+        update("li.session a").with text => "Log Out"
       end
     end
   end

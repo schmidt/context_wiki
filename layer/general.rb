@@ -79,3 +79,7 @@ module Manipulation
     receiver << original_document + extension
   end
 end
+
+Lilu::Renderer.class_eval do
+  include ContextWiki::Helpers
+end
