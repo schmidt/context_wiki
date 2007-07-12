@@ -103,6 +103,8 @@ module ContextWiki::Models
     belongs_to :user, :class_name => "User", :foreign_key => "user_id"
 
     acts_as_versioned
+    acts_as_list :scope => "parent_id"
+    acts_as_tree :order => "position"
 
     validates_uniqueness_of :name
     validates_format_of     :name, :with => /^[a-zA-Z0-9\-\.\_\~\!\*\'\(\)\+]+$/
@@ -169,6 +171,8 @@ module ContextWiki::Models
         t.column :content,  :text
         t.column :markup,   :string,  :limit => 10, :null => false
         t.column :user_id,  :string, :limit => 25, :null => false
+        t.column :parent_id, :string, :limit => 50
+        t.column :position, :integer
         t.column :rights,   :integer
       end
       Page.create_versioned_table

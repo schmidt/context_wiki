@@ -6,6 +6,7 @@ module ContextLogging
     puts(["\"#{t1.to_formatted_s(:short)}\"",
           "%.2fs" % (t2 - t1),
           @method.upcase + " " + env["PATH_INFO"],
+          @format,
           "(%s)" % ContextR::layer_symbols.join(", ")].join(" - "))
     s
   end
