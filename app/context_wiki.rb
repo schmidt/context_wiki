@@ -16,7 +16,7 @@ end
 
 
 module ContextWiki
-  include Camping::Session, ContextCamping, REST 
+  include Camping::Session, REST, ContextCamping
 end
 
 module ContextWiki::Models
@@ -1002,7 +1002,7 @@ def ContextWiki.create
 end
 
 
-%w{general acl random editor admin known_user}.each { |layer|
+%w{general acl random editor admin known_user format}.each { |layer|
     load(File.dirname(__FILE__) + "/../layer/#{layer}.rb")}
 
 

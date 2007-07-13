@@ -28,6 +28,7 @@ module ContextCamping
       layers << ((registered_groups.include?(group.name) ? "" : "no_") + 
                   group.name.singularize).to_sym
     end
+    layers << "#{@format}_request".to_sym
     layers
   end
 
