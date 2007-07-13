@@ -1,4 +1,4 @@
-require "action_controller" 
+require "action_controller/mime_type" 
 module REST
   def service(*a)
     if @method == 'post' && (input._verb == 'put' || input._verb == 'delete')
