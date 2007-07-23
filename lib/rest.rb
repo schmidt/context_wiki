@@ -6,18 +6,11 @@ module REST
       @method = input._verb
     end
     @format = read_accept_header
+    if a[-2] == "." and self.class.ancestors.include? SleepingBag
+      @format = read_format_extension(a.pop)
+      a.pop
+    end
     super(*a)
-  end
-
-  def dispatch(method, args)
-    if args[-2] == "."
-      @format = read_format_extension(args.pop)
-      args.pop
-    end
-    ContextR::with_layer *compute_current_context do
-      @headers['x-contextr'] = ContextR::layer_symbols.join(" ")
-      super(method, args)
-    end
   end
 
   def read_format_extension(extension)
