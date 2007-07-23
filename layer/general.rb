@@ -1,5 +1,5 @@
 module UnAuthorized
-  VERBS = %w{get post post delete}
+  VERBS = %w{get post post delete} unless const_defined? :VERBS
 
   def restrict_access(verb, option = nil)
     VERBS.each { |v| restrict_access(v, option) } if verb == :all
