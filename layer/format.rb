@@ -1,15 +1,8 @@
 class ContextWiki::Controllers::Pages
   module XMLMethods
-    def get(*a)
-      if a[1] == "versions"
-        class << yield(:receiver)
-          def model
-            @page.versions
-          end
-        end
-      end
-      yield(:next, *a)
-    end
+    self.extend(RESTModels)
+    specify_domain_model(:name => "versions",
+                         :model => "@page.versions")
   end
   register XMLMethods => ContextR::XmlRequestLayer
 end

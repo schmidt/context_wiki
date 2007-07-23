@@ -80,6 +80,25 @@ module Manipulation
   end
 end
 
+module RESTModels
+  def specify_domain_model(options)
+    (options[:verbs] || [:get, :put, :post, :delete]).each do | verb |
+      self.class_eval %Q{
+        def #{verb}(*a)
+          if a.last == "#{options[:name]}"
+            class << yield(:receiver)
+              define_method :model do
+                #{options[:model]}
+              end
+            end
+          end
+          yield(:next, *a)
+        end
+      }
+    end
+  end
+end
+
 Lilu::Renderer.class_eval do
   include ContextWiki::Helpers
 end
