@@ -437,7 +437,6 @@ module ContextWiki::Controllers
 
     methods[:preview] = [:post]
     def preview
-      puts "I was here"
       @page = Page.new_for_render(input.page)
       render "_page_body"
     end
