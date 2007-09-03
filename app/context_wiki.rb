@@ -2,7 +2,7 @@
 %w{rubygems redcloth camping camping/db camping/session mime/types
    acts_as_versioned contextr md5}.each{ |lib| require lib }
 
-%w{sleeping_bag lilu}.each { |ext| 
+%w{sleeping_bag lilu rmql}.each { |ext| 
     require File.dirname(__FILE__) + "/../ext/#{ext}/lib/#{ext}" }
 
 %w{general context_camping rest renderer}.each { |lib| 
@@ -439,6 +439,28 @@ module ContextWiki::Controllers
     def preview
       @page = Page.new_for_render(input.page)
       render "_page_body"
+    end
+  end
+
+  class RMQL < R '/rmql'
+    def get
+      form :method => "post" do
+        textarea :name => "query", :id => "query" do
+          text %Q{<users>
+  for $user in user return <user>{$user/name}</user>
+</users>}
+        end
+        input :type => "submit", :value => "Send"
+      end
+    end
+
+    def post
+      res = RMQLParser.parse(RMQLLexer.lex(input.query)) 
+      if res.is_a? Dhaka::ParseErrorResult
+        raise RMQLException.new("Error parsing query. Please check the syntax!")
+      end
+      @headers["Content-Type"] = "application/xml"
+      RMQLEvaluator.new(nil).evaluate(res)
     end
   end
 
@@ -1004,6 +1026,7 @@ end
 %w{general acl random editor admin known_user format}.each { |layer|
     load(File.dirname(__FILE__) + "/../layer/#{layer}.rb")}
 
+RMQLEvaluator.send(:include, ContextWiki::Models)
 
 if __FILE__ == $0
   require 'mongrel'
