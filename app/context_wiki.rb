@@ -101,8 +101,8 @@ module ContextWiki::Models
     belongs_to :user, :class_name => "User", :foreign_key => "user_id"
 
     acts_as_versioned
-    acts_as_list :scope => "parent_id"
-    acts_as_tree :order => "position"
+#    acts_as_list :scope => "parent_id"
+#    acts_as_tree :order => "position"
 
     validates_uniqueness_of :name
     validates_format_of     :name, :with => /^[a-zA-Z0-9\-\.\_\~\!\*\'\(\)\+]+$/

@@ -1,10 +1,19 @@
+class ContextWiki::Controllers::RMQL
+  module NoAdminMethods
+    self.extend(UnAuthorized)
+
+    restrict_access(:all, :disallow)
+  end
+  include NoAdminMethods => :no_admin
+end
+
 class ContextWiki::Controllers::Groups
   module NoAdminMethods
     self.extend(UnAuthorized)
 
     restrict_access(:all, :disallow)
   end
-  register NoAdminMethods => ContextR::NoAdminLayer
+  include NoAdminMethods => :no_admin
 end
 
 class ContextWiki::Controllers::Users
@@ -22,8 +31,8 @@ class ContextWiki::Controllers::Users
     restrict_access(:put, :disallow)
   end
 
-  register NoAdminMethods => ContextR::NoAdminLayer
-  register NoKnownUserMethods => ContextR::NoKnownUserLayer
+  include NoAdminMethods => :no_admin
+  include NoKnownUserMethods => :no_known_user
 end
 
 class ContextWiki::Controllers::Pages
@@ -36,5 +45,5 @@ class ContextWiki::Controllers::Pages
     restrict_access(:delete, :disallow)
   end
 
-  register NoEditorMethods => ContextR::NoEditorLayer
+  include NoEditorMethods => :no_editor
 end

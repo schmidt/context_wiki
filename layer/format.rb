@@ -4,7 +4,7 @@ class ContextWiki::Controllers::Pages
     specify_domain_model(:name => "versions",
                          :model => "@page.versions")
   end
-  register XMLMethods => ContextR::XmlRequestLayer
+  include XMLMethods => :xml_request
 end
 module ContextWiki::Base
   def render(m)
@@ -40,5 +40,5 @@ module ContextWiki::Base
       receiver.class.name.scan(/([^:]+)$/).first.first.downcase
     end
   end
-  register XMLMethods => ContextR::XmlRequestLayer
+  include XMLMethods => :xml_request
 end

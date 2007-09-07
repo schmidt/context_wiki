@@ -3,7 +3,7 @@ class ContextWiki::Models::User
     def update_groups(new_groups = nil)
     end
   end
-  register NoAdminUserModel => ContextR::NoAdminLayer
+  include NoAdminUserModel => :no_admin
 end
 
 module ContextWiki::Views
@@ -25,7 +25,7 @@ module ContextWiki::Views
       end
     end
   end
-  register NoAdminViews => ContextR::NoAdminLayer
+  include NoAdminViews => :no_admin
 end
 
 module ContextWiki::Helpers
@@ -39,5 +39,5 @@ module ContextWiki::Helpers
       end
     end
   end
-  register AdminHelpers   => ContextR::AdminLayer
+  include AdminHelpers   => :admin
 end

@@ -9,5 +9,5 @@ module ContextWiki::Helpers
       end
     end
   end
-  register RandomHelpers => ContextR::RandomLayer
+  include RandomHelpers => :random
 end

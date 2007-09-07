@@ -22,8 +22,8 @@ module ContextWiki::Views
       end
     end
   end
-  register NoKnownUserViews => ContextR::NoKnownUserLayer,
-           KnownUserViews   => ContextR::KnownUserLayer
+  include NoKnownUserViews => :no_known_user,
+          KnownUserViews   => :known_user
 end
 
 module ContextWiki::Helpers
@@ -36,5 +36,5 @@ module ContextWiki::Helpers
       end
     end
   end
-  register KnownUserHelpers => ContextR::KnownUserLayer
+  include KnownUserHelpers => :known_user
 end

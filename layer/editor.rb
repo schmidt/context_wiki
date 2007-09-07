@@ -14,7 +14,7 @@ module ContextWiki::Views
       end
     end
   end
-  register NoEditorViews => ContextR::NoEditorLayer
+  include NoEditorViews => :no_editor
 end
 
 module ContextWiki::Helpers
@@ -28,5 +28,5 @@ module ContextWiki::Helpers
       end
     end
   end
-  register EditorHelpers => ContextR::EditorLayer
+  include EditorHelpers => :editor
 end
