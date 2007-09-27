@@ -7,7 +7,7 @@ module ContextLogging
           "%.2fs" % (t2 - t1),
           @method.upcase + " " + env["PATH_INFO"],
           @format,
-          "(%s)" % ContextR::layer_symbols.join(", ")].join(" - "))
+          "(%s)" % ContextR::active_layers.join(", ")].join(" - "))
     s
   end
 end
@@ -34,15 +34,15 @@ module ContextCamping
 
   def service(*a)
     ContextR::with_layer *compute_current_context do
-      @headers['x-contextr'] = ContextR::layer_symbols.join(" ")
+      @headers['x-contextr'] = ContextR::active_layers.join(" ")
       super(*a)
     end
   end
 
   def in_reset_context
-    ContextR::without_layers *ContextR::layer_symbols do
+    ContextR::without_layers *ContextR::active_layers do
       ContextR::with_layers *compute_current_context do
-        @headers['x-contextr'] = ContextR::layer_symbols.join(" ")
+        @headers['x-contextr'] = ContextR::active_layers.join(" ")
         yield
       end
     end

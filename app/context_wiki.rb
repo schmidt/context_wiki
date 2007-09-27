@@ -5,7 +5,7 @@
 %w{sleeping_bag lilu rmql}.each { |ext| 
     require File.dirname(__FILE__) + "/../ext/#{ext}/lib/#{ext}" }
 
-%w{general context_camping rest renderer}.each { |lib| 
+%w{general context_camping rest renderer literate_markaby}.each { |lib| 
     load(File.dirname(__FILE__) + "/../lib/#{lib}.rb") }
 
 Camping.goes :ContextWiki
@@ -16,7 +16,7 @@ end
 
 
 module ContextWiki
-  include Camping::Session, REST, ContextCamping
+  include Camping::Session, REST, ContextCamping, LiterateMarkaby
 end
 
 module ContextWiki::Models
