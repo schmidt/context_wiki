@@ -1,16 +1,17 @@
 class ContextWiki::Controllers::Pages
-  module XMLMethods
+  in_layer :xml_request do 
     self.extend(RESTModels)
     specify_domain_model(:name => "versions",
                          :model => "@page.versions")
   end
-  include XMLMethods => :xml_request
 end
+
 module ContextWiki::Base
   def render(m)
     super
   end
-  module XMLMethods
+
+  in_layer :xml_request do
     def render(m)
       model = fetch_model(yield(:receiver))
       yield(:receiver).instance_variable_get(:@headers)["Content-Type"] = 
@@ -40,5 +41,4 @@ module ContextWiki::Base
       receiver.class.name.scan(/([^:]+)$/).first.first.downcase
     end
   end
-  include XMLMethods => :xml_request
 end
