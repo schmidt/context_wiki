@@ -1,5 +1,5 @@
-module ContextWiki::Views
-  module NoKnownUserViews
+module ContextWiki
+  module Views::NoKnownUserViews; in_layer :no_known_user
     include Manipulation
     def _navigation_links(&context)
       manipulate(context) do
@@ -14,7 +14,7 @@ module ContextWiki::Views
     end
   end
 
-  module KnownUserViews
+  module Views::KnownUserViews; in_layer :known_user
     include Manipulation
     def _navigation_links(&context)
       manipulate(context) do
@@ -22,12 +22,8 @@ module ContextWiki::Views
       end
     end
   end
-  include NoKnownUserViews => :no_known_user,
-          KnownUserViews   => :known_user
-end
 
-module ContextWiki::Helpers
-  module KnownUserHelpers
+  module Helpers::KnownUserHelpers; in_layer :known_user
     include Manipulation
     def footer(&context)
       append(context) do
@@ -36,5 +32,4 @@ module ContextWiki::Helpers
       end
     end
   end
-  include KnownUserHelpers => :known_user
 end

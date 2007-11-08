@@ -1,6 +1,7 @@
-module ContextWiki::Views
-  module NoEditorViews
+module ContextWiki
+  module Views::NoEditorViews; in_layer :no_editor
     include Manipulation
+
     def _page_show_footer(&context)
       manipulate(context) do
         remove("li.edit")
@@ -14,11 +15,8 @@ module ContextWiki::Views
       end
     end
   end
-  include NoEditorViews => :no_editor
-end
 
-module ContextWiki::Helpers
-  module EditorHelpers
+  module Helpers::EditorHelpers; in_layer :editor
     include Manipulation
 
     def footer(&context)
@@ -28,5 +26,5 @@ module ContextWiki::Helpers
       end
     end
   end
-  include EditorHelpers => :editor
 end
+

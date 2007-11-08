@@ -1,13 +1,10 @@
-class ContextWiki::Models::User
-  module NoAdminUserModel
+module ContextWiki
+  module Models::User::NoAdminUserModel; in_layer :no_admin
     def update_groups(new_groups = nil)
     end
   end
-  include NoAdminUserModel => :no_admin
-end
 
-module ContextWiki::Views
-  module NoAdminViews
+  module Views::NoAdminViews; in_layer :no_admin
     include Manipulation
     def _user_show_footer(&context)
       manipulate(context) do
@@ -25,11 +22,8 @@ module ContextWiki::Views
       end
     end
   end
-  include NoAdminViews => :no_admin
-end
 
-module ContextWiki::Helpers
-  module AdminHelpers
+  module Helpers::AdminHelpers; in_layer :admin
     include Manipulation
 
     def footer(&context)
@@ -39,5 +33,4 @@ module ContextWiki::Helpers
       end
     end
   end
-  include AdminHelpers   => :admin
 end

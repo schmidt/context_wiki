@@ -1,42 +1,23 @@
-class ContextWiki::Controllers::RMQL
-  module NoAdminMethods
+module ContextWiki::Controllers
+  module RMQL::NoAdminMethods; in_layer :no_admin
     self.extend(UnAuthorized)
 
     restrict_access(:all, :disallow)
   end
-  include NoAdminMethods => :no_admin
-end
-
-class ContextWiki::Controllers::Groups
-  module NoAdminMethods
+  module Groups::NoAdminMethods; in_layer :no_admin
     self.extend(UnAuthorized)
 
     restrict_access(:all, :disallow)
   end
-  include NoAdminMethods => :no_admin
-end
-
-class ContextWiki::Controllers::Users
-  module NoAdminMethods
+  module Users::NoAdminMethods; in_layer :no_admin
     self.extend(UnAuthorized)
 
     restrict_access(:get, :disallow => '/edit$/')
     restrict_access(:put, :allow => '/^current$/')
     restrict_access(:delete, :disallow)
   end
-  module NoKnownUserMethods
-    self.extend(UnAuthorized)
 
-    restrict_access(:get, :allow => '/^new$/')
-    restrict_access(:put, :disallow)
-  end
-
-  include NoAdminMethods => :no_admin
-  include NoKnownUserMethods => :no_known_user
-end
-
-class ContextWiki::Controllers::Pages
-  module NoEditorMethods
+  module Pages::NoEditorMethods; in_layer :no_editor
     self.extend(UnAuthorized)
 
     restrict_access(:get, :disallow => '/(edit|new)\/?$/')
@@ -45,5 +26,10 @@ class ContextWiki::Controllers::Pages
     restrict_access(:delete, :disallow)
   end
 
-  include NoEditorMethods => :no_editor
+  module Users::NoKnownUserMethods; in_layer :no_known_user
+    self.extend(UnAuthorized)
+
+    restrict_access(:get, :allow => '/^new$/')
+    restrict_access(:put, :disallow)
+  end
 end

@@ -1,13 +1,10 @@
-module ContextWiki::Helpers
-  module RandomHelpers
-    include Manipulation
+module ContextWiki::Helpers::RandomHelpers; in_layer :random
+  include Manipulation
 
-    def footer(&context)
-      append(context) do
-        text " &middot; "
-        text "Random actions"
-      end
+  def footer(&context)
+    append(context) do
+      text " &middot; "
+      text "Random actions"
     end
   end
-  include RandomHelpers => :random
 end
