@@ -1,0 +1,54 @@
+httperf --server 127.0.0.1 --port 3301 --uri /pages/index --num-conns 150
+
+########################################################################
+# Using Mongrel
+
+# With layers
+
+Reply rate [replies/s]: min 7.8 avg 8.0 max 8.2 stddev 0.2 (3 samples)
+Reply rate [replies/s]: min 7.6 avg 8.1 max 8.4 stddev 0.4 (3 samples)
+Reply rate [replies/s]: min 8.2 avg 8.2 max 8.2 stddev 0.0 (3 samples)
+
+# With layers, without sessions
+Reply rate [replies/s]: min 6.2 avg 7.7 max 8.4 stddev 1.3 (3 samples)
+Reply rate [replies/s]: min 7.8 avg 8.1 max 8.2 stddev 0.2 (3 samples)
+Reply rate [replies/s]: min 8.4 avg 8.4 max 8.4 stddev 0.0 (3 samples)
+
+# Without layers
+
+Reply rate [replies/s]: min 9.4 avg 9.9 max 10.8 stddev 0.8 (3 samples)
+Reply rate [replies/s]: min 10.2 avg 10.4 max 10.6 stddev 0.3 (2 samples)
+Reply rate [replies/s]: min 9.2 avg 9.7 max 10.6 stddev 0.8 (3 samples)
+Reply rate [replies/s]: min 8.4 avg 9.7 max 10.4 stddev 1.2 (3 samples)
+
+# Without layers, without sessions
+
+Reply rate [replies/s]: min 9.8 avg 10.4 max 11.0 stddev 0.8 (2 samples)
+Reply rate [replies/s]: min 10.4 avg 10.6 max 10.8 stddev 0.2 (3 samples)
+Reply rate [replies/s]: min 10.6 avg 10.7 max 10.8 stddev 0.1 (3 samples)
+
+########################################################################
+# Using Rack/Mongrel 
+
+# With layers r63
+
+Reply rate [replies/s]: min 7.8 avg 7.8 max 7.8 stddev 0.0 (3 samples)
+Reply rate [replies/s]: min 8.2 avg 8.2 max 8.2 stddev 0.0 (3 samples)
+
+# With layers, without sessions
+
+Reply rate [replies/s]: min 7.6 avg 8.2 max 8.8 stddev 0.6 (3 samples)
+Reply rate [replies/s]: min 8.2 avg 8.4 max 8.6 stddev 0.2 (3 samples)
+Reply rate [replies/s]: min 8.2 avg 8.2 max 8.2 stddev 0.0 (3 samples)
+
+# Without layers
+
+Reply rate [replies/s]: min 9.6 avg 10.2 max 10.6 stddev 0.5 (3 samples)
+Reply rate [replies/s]: min 10.6 avg 10.7 max 10.8 stddev 0.1 (3 samples)
+
+# Without layers, without sessions
+
+Reply rate [replies/s]: min 9.6 avg 10.2 max 10.8 stddev 0.8 (2 samples)
+Reply rate [replies/s]: min 10.2 avg 10.3 max 10.4 stddev 0.1 (2 samples)
+Reply rate [replies/s]: min 10.6 avg 10.6 max 10.6 stddev 0.0 (3 samples) 
+

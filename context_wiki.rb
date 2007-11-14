@@ -1,13 +1,14 @@
 #!/usr/bin/env ruby
+$:.unshift(File.dirname(__FILE__))
+
 %w{rubygems redcloth camping camping/db camping/session mime/types
    acts_as_versioned contextr md5}.each{ |lib| require lib }
 
 %w{sleeping_bag lilu rmql}.each { |ext| 
-    require File.dirname(__FILE__) + "/../ext/#{ext}/lib/#{ext}" }
+    require "ext/#{ext}/lib/#{ext}" }
 
-%w{general context_camping rest renderer 
-   literate_markaby literate_maruku}.each { |lib| 
-    load(File.dirname(__FILE__) + "/../lib/#{lib}.rb") }
+%w{general context_camping rest renderer
+   literate_markaby literate_maruku}.each { |lib| load("lib/#{lib}.rb") }
 
 Camping.goes :ContextWiki
 
@@ -17,7 +18,10 @@ end
 
 
 module ContextWiki
-  include Camping::Session, REST, ContextCamping, LiterateMarkaby
+  include Camping::Session
+  include REST
+  include ContextCamping
+  include LiterateMarkaby
 end
 
 module ContextWiki::Models
@@ -472,7 +476,7 @@ module ContextWiki::Controllers
   end
 
   class Static < R '/static/(.+)'         
-    PATH = File.expand_path(File.dirname(__FILE__) + "/../")
+    PATH = File.expand_path(File.dirname(__FILE__))
 
     def get(file)
       if file.include? '..'
@@ -1025,29 +1029,35 @@ end
 
 
 %w{general acl random editor admin known_user format}.each { |layer|
-    load(File.dirname(__FILE__) + "/../layer/#{layer}.rb")}
+    load("layer/#{layer}.rb")}
 
 RMQLEvaluator.send(:include, ContextWiki::Models)
 
 if __FILE__ == $0
-  require 'mongrel'
-  require 'mongrel/camping'
   ContextWiki::Models::Base.establish_connection :adapter => 'mysql', 
                             :database => 'camping',
                             :username => 'root',
                             :password => ''
+  if true 
+    require 'mongrel'
+    require 'mongrel/camping'
 
-#  ContextWiki::Models::Base.logger = Logger.new('camping.log')
-#  ContextWiki::Models::Base.logger.level = Logger::WARN 
+  #  ContextWiki::Models::Base.logger = Logger.new('camping.log')
+  #  ContextWiki::Models::Base.logger.level = Logger::WARN 
 
-  ContextWiki::Models::Base.threaded_connections = false
-  ContextWiki.create
+    ContextWiki::Models::Base.threaded_connections = false
+    ContextWiki.create
 
-  server = Mongrel::Camping::start("0.0.0.0", 3301, "/", ContextWiki)
-  puts "** ContextWiki is running at http://localhost:3301/"
-  server.run.join
+    server = Mongrel::Camping::start("0.0.0.0", 3301, "/", ContextWiki)
+    puts "** ContextWiki is running on Mongrel at http://localhost:3301/"
+    server.run.join
+  else
+    require 'rack'
 
-
+    app = Rack::Adapter::Camping.new(ContextWiki)
+    puts "** ContextWiki is running on Rack/Mongrel at http://localhost:3301/"
+    Rack::Handler::Mongrel.run app, :Port => 3301
+  end
 else
   # enable logging
   module ContextCamping

@@ -23,7 +23,7 @@ module UnAuthorized
         path = arguments.join "/"
         path = "" if path.empty?
         if path =~ #{allowed_methods}
-          yield(:next, *arguments)
+          super 
         else
           yield(:receiver).instance_eval do
             @status = 401
@@ -45,7 +45,7 @@ module UnAuthorized
             render "not_authorized"
           end
         else
-          yield(:next, *arguments)
+          super
         end
       end
     }, __FILE__, __LINE__
@@ -92,7 +92,7 @@ module RESTModels
               end
             end
           end
-          yield(:next, *a)
+          super 
         end
       }
     end
