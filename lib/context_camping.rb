@@ -14,22 +14,25 @@ end
 
 module ContextCamping
   def compute_current_context
-    layers = []
-    layers << :random if rand(0).round.zero?
-    if @state.current_user
-      layers << :known_user
-      @current_user = @state.current_user
-      registered_groups = @current_user.groups.collect(&:name)
-    else
-      layers << :no_known_user
-      registered_groups = []
+    returning([]) do |layers|
+      layers << :random if rand(2).zero?
+
+      if @state.current_user
+        layers << :known_user
+        @current_user = @state.current_user
+        registered_groups = @current_user.groups.collect(&:name)
+      else
+        layers << :no_known_user
+        registered_groups = []
+      end
+
+      ContextWiki::Models::Group.find(:all).each do | group |
+        layers << ((registered_groups.include?(group.name) ? "" : "no_") + 
+                    group.name.singularize).to_sym
+      end
+
+      layers << "#{@format}_request".to_sym
     end
-    ContextWiki::Models::Group.find(:all).each do | group |
-      layers << ((registered_groups.include?(group.name) ? "" : "no_") + 
-                  group.name.singularize).to_sym
-    end
-    layers << "#{@format}_request".to_sym
-    layers
   end
 
   def service(*a)

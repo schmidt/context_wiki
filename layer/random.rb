@@ -4,8 +4,7 @@ module ContextWiki::Helpers
 
     def footer(&context)
       append(context) do
-        text " &middot; "
-        text "Random actions"
+        text " &middot; Random actions"
       end
     end
   end

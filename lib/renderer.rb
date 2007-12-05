@@ -3,7 +3,7 @@ module ContextWiki
   module Renderer
     module BasicRenderMethods
       def render(markup)
-        raise "Subclass Responsibility"
+        raise NotImplementedError, "Subclass Responsibility"
       end
     end
 

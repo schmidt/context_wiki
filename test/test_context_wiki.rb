@@ -1,6 +1,6 @@
 require 'rubygems'
 require 'mosquito'
-require File.dirname(__FILE__) + "/../app/context_wiki"
+require File.dirname(__FILE__) + "/../context_wiki"
 
 ContextWiki.create
 include ContextWiki::Models

@@ -7,7 +7,7 @@ $:.unshift(File.dirname(__FILE__))
 %w{sleeping_bag lilu rmql}.each { |ext| 
     require "ext/#{ext}/lib/#{ext}" }
 
-%w{general context_camping rest renderer
+%w{general rest context_camping renderer
    literate_markaby literate_maruku}.each { |lib| load("lib/#{lib}.rb") }
 
 Camping.goes :ContextWiki
@@ -18,10 +18,10 @@ end
 
 
 module ContextWiki
-  include Camping::Session
-  include REST
-  include ContextCamping
   include LiterateMarkaby
+  include ContextCamping
+  include REST
+  include Camping::Session
 end
 
 module ContextWiki::Models
@@ -139,6 +139,10 @@ module ContextWiki::Models
       attributes[:version] = version.version
       Page.new(attributes.merge(:versions => [version]))
     end
+
+    def self.latest(count = 5)
+      self.find(:all, :limit => count, :order => "updated_at DESC") 
+    end
   end
 
   class CreateContextWiki < V 1.0
@@ -189,6 +193,16 @@ module ContextWiki::Models
       drop_table :contextwiki_groups
       drop_table :contextwiki_pages
       Page.drop_versioned_table
+    end
+  end
+  class AddTimestampsToPages < V 2.0
+    def self.up
+      add_column :contextwiki_pages, :created_at, :datetime
+      add_column :contextwiki_pages, :updated_at, :datetime
+    end
+    def self.down
+      remove_column :contextwiki_pages, :created_at
+      remove_column :contextwiki_pages, :updated_at
     end
   end
 end
@@ -440,6 +454,15 @@ module ContextWiki::Controllers
       redirect R(Pages)
     end
 
+    # GET /pages/latest LATEST 
+    methods[:latest] = [:get]
+    def latest
+      @pages = Page.latest(5)
+      render "page_latest"
+##    rescue
+##      redirect R(Pages)
+    end
+
     methods[:preview] = [:post]
     def preview
       @page = Page.new_for_render(input.page)
@@ -498,6 +521,15 @@ module ContextWiki::Views
       head do
         link :rel => 'stylesheet', :type => 'text/css',
              :href => '/static/stylesheets/application.css'
+
+        link :rel => "alternate", :type => "application/rss+xml",
+             :title => "Latest Changes - RSS", 
+             :href => RF(Pages, "rss", "latest")
+
+        link :rel => "alternate", :type => "application/atom+xml",
+             :title => "Latest Changes - Atom", 
+             :href => RF(Pages, "atom", "latest")
+
         title "ContextWiki :: Camping Wiki using ContextR"
         %w{prototype builder application}.each do | lib |
           script :type => "text/javascript", 
@@ -837,6 +869,16 @@ module ContextWiki::Views
     p { a "Back to current version", :href => R(Pages, @page.name) }
   end
 
+  def page_latest
+    @page = @pages.shift
+    page_show
+    @pages.each do |page|
+      @page = page
+      hr
+      page_show
+    end
+  end
+
   #############
   # Error related views
   def not_authorized
@@ -1028,7 +1070,7 @@ def ContextWiki.create
 end
 
 
-%w{general acl random editor admin known_user format}.each { |layer|
+%w{helper acl random format}.each { |layer|
     load("layer/#{layer}.rb")}
 
 RMQLEvaluator.send(:include, ContextWiki::Models)
