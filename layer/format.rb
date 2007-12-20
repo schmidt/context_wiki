@@ -1,5 +1,3 @@
-require "rss/maker"
-
 class ContextWiki::Controllers::Pages
   in_layer :xml_request do 
     self.extend(RESTModels)
