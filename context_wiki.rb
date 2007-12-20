@@ -4,11 +4,9 @@ $:.unshift(File.dirname(__FILE__))
 %w{rubygems redcloth camping camping/db camping/session mime/types
    acts_as_versioned contextr md5}.each{ |lib| require lib }
 
-%w{sleeping_bag lilu}.each { |ext| 
-    require "ext/#{ext}/lib/#{ext}" }
+%w{sleeping_bag lilu}.each { |ext| require "ext/#{ext}/lib/#{ext}" }
 
-%w{general rest context_camping renderer
-   literate_markaby literate_maruku}.each { |lib| load("lib/#{lib}.rb") }
+%w{general rest context_camping renderer}.each { |lib| load("lib/#{lib}.rb") }
 
 Camping.goes :ContextWiki
 
@@ -18,7 +16,6 @@ end
 
 
 module ContextWiki
-  include LiterateMarkaby
   include ContextCamping
   include REST
   include Camping::Session
