@@ -17,19 +17,6 @@ module ContextWiki
       self.extend(ClassMethods)
     end
 
-    class Markaby
-      module ClassMethods
-        include BasicRenderMethods
-        def render(markup)
-          mab = Mab.new({}, self)
-          mab.capture do
-            eval(markup)
-          end
-        end
-      end
-      self.extend(ClassMethods)
-    end
-
     class Markdown
       module ClassMethods
         include BasicRenderMethods
@@ -42,7 +29,6 @@ module ContextWiki
   end
 
   RENDERER = { :html => ContextWiki::Renderer::HTML,
-               :markaby => ContextWiki::Renderer::Markaby,
                :markdown => ContextWiki::Renderer::Markdown }
 
   module Helpers
