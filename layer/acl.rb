@@ -14,13 +14,6 @@ module ContextWiki
 # Description of no_admin layer
   #
   # Restrict access in to Controllers
-  class Controllers::RMQL
-    in_layer :no_admin do
-      self.extend(UnAuthorized)
-
-      restrict_access(:all, :disallow)
-    end
-  end
   class Controllers::Groups
     in_layer :no_admin do
       self.extend(UnAuthorized)
