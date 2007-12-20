@@ -92,7 +92,6 @@ module ContextWiki::Models
     set_primary_key :name
     has_many :group_memberships
     has_many :users, :through => :group_memberships
-    has_many :pages
 
     validates_length_of :name, :within => 2..25
     validates_format_of :name, :with => /[a-z]+/i
@@ -106,8 +105,6 @@ module ContextWiki::Models
     belongs_to :user, :class_name => "User", :foreign_key => "user_id"
 
     acts_as_versioned
-#    acts_as_list :scope => "parent_id"
-#    acts_as_tree :order => "position"
 
     validates_uniqueness_of :name
     validates_format_of     :name, :with => /^[a-zA-Z0-9\-\.\_\~\!\*\'\(\)\+]+$/
@@ -115,8 +112,6 @@ module ContextWiki::Models
     validates_exclusion_of     :name, :in => %w{new edit}
     validates_presence_of     :markup
     validates_presence_of     :user_id
-    validates_numericality_of :rights
-    validates_inclusion_of    :rights, :in => 0..0x777
 
     def to_s
       self.name
@@ -141,7 +136,7 @@ module ContextWiki::Models
     end
 
     def self.latest(count = 5)
-      self.find(:all, :limit => count, :order => "updated_at DESC") 
+      self.find(:all, :limit => count, :include => "versions", :order => "contextwiki_page_versions.updated_at DESC")
     end
   end
 
@@ -178,9 +173,6 @@ module ContextWiki::Models
         t.column :content,  :text
         t.column :markup,   :string,  :limit => 10, :null => false
         t.column :user_id,  :string, :limit => 25, :null => false
-        t.column :parent_id, :string, :limit => 50
-        t.column :position, :integer
-        t.column :rights,   :integer
       end
       Page.create_versioned_table
       Page.reset_column_information
@@ -193,16 +185,6 @@ module ContextWiki::Models
       drop_table :contextwiki_groups
       drop_table :contextwiki_pages
       Page.drop_versioned_table
-    end
-  end
-  class AddTimestampsToPages < V 2.0
-    def self.up
-      add_column :contextwiki_pages, :created_at, :datetime
-      add_column :contextwiki_pages, :updated_at, :datetime
-    end
-    def self.down
-      remove_column :contextwiki_pages, :created_at
-      remove_column :contextwiki_pages, :updated_at
     end
   end
 end
@@ -409,7 +391,6 @@ module ContextWiki::Controllers
     def create
       @page = Page.new(input.page)
       @page.name = input.page.name.underscore
-      @page.rights ||= 0x777
       @page.user = state.current_user
       if @page.valid?
         @page.save
@@ -427,10 +408,9 @@ module ContextWiki::Controllers
     # PUT /pages/(id)
     def update(id)
       @page = Page.find_by_name(id)
-      @page.update_attributes(input.page)
       @page.user = current_user
-      if @page.valid?
-        @page.save
+
+      if @page.update_attributes(input.page)
         render "page_show"
       else
         render "page_edit"
@@ -1064,9 +1044,55 @@ module ContextWiki::Helpers
   end
 end
 
-def ContextWiki.create  
+def ContextWiki.create
   ContextWiki::Models.create_schema :assume => 
         (ContextWiki::Models::Page.table_exists? ? 1.0 : 0.0)
+
+  ContextWiki.init if ContextWiki::Models::User.count == 0
+end
+
+def ContextWiki.init
+  # Create Users
+  admins = ContextWiki::Models::Group.new
+  admins.id = "admins"
+  editors = ContextWiki::Models::Group.new
+  editors.id = "editors"
+
+  admin = ContextWiki::Models::User.new(:password => "admin",
+                                        :password_confirmation => "admin",
+                                        :std_markup => "markdown",
+                                        :email => "admin@example.com")
+  admin.id = "admin"
+  admin.authenticated = true 
+  editor = ContextWiki::Models::User.new(:password => "editor",
+                                         :password_confirmation => "editor",
+                                         :std_markup => "markdown",
+                                         :email => "editor@example.com")
+  editor.id = "editor"
+  editor.authenticated = true 
+  user = ContextWiki::Models::User.new(:password => "user",
+                                       :password_confirmation => "user",
+                                       :std_markup => "markdown",
+                                       :email => "user@example.com")
+  user.id = "user"
+  user.authenticated = true 
+
+  admins.save
+  editors.save
+
+  admin.save
+  editor.save
+  user.save
+
+  admin.groups << admins
+  admin.groups << editors
+  editor.groups << editors
+
+  index = ContextWiki::Models::Page.new(:name => "index",
+                                        :content => "Welcome to ContextWiki",
+                                        :markup => "markdown",
+                                        :user => admin)
+  index.save
 end
 
 
