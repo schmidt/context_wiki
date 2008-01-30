@@ -1107,14 +1107,14 @@ if __FILE__ == $0
                             :username => 'root',
                             :password => ''
   if true 
+    gem 'mongrel', "<1.1.3"
     require 'mongrel'
     require 'mongrel/camping'
 
   #  ContextWiki::Models::Base.logger = Logger.new('camping.log')
   #  ContextWiki::Models::Base.logger.level = Logger::WARN 
 
-    ContextWiki::Models::Base.threaded_connections = false
-    ContextWiki.create
+    ContextWiki.create if ContextWiki.respond_to? :create
 
     server = Mongrel::Camping::start("0.0.0.0", 3301, "/", ContextWiki)
     puts "** ContextWiki is running on Mongrel at http://localhost:3301/"
