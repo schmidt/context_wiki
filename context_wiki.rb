@@ -108,10 +108,10 @@ module ContextWiki::Models
 
     validates_uniqueness_of :name
     validates_format_of     :name, :with => /^[a-zA-Z0-9\-\.\_\~\!\*\'\(\)\+]+$/
-    validates_length_of       :name, :within => 2..50
-    validates_exclusion_of     :name, :in => %w{new edit}
-    validates_presence_of     :markup
-    validates_presence_of     :user_id
+    validates_length_of     :name, :within => 2..50
+    validates_exclusion_of  :name, :in => %w{new edit}
+    validates_presence_of   :markup
+    validates_presence_of   :user_id
 
     def to_s
       self.name
@@ -131,6 +131,7 @@ module ContextWiki::Models
       attributes = version.attributes
       attributes.delete("updated_at")
       attributes.delete("page_id")
+      attributes.delete("id")
       attributes[:version] = version.version
       Page.new(attributes.merge(:versions => [version]))
     end
