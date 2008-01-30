@@ -105,10 +105,10 @@ module ContextWiki::Models
 
     validates_uniqueness_of :name
     validates_format_of     :name, :with => /^[a-zA-Z0-9\-\.\_\~\!\*\'\(\)\+]+$/
-    validates_length_of       :name, :within => 2..50
-    validates_exclusion_of     :name, :in => %w{new edit}
-    validates_presence_of     :markup
-    validates_presence_of     :user_id
+    validates_length_of     :name, :within => 2..50
+    validates_exclusion_of  :name, :in => %w{new edit}
+    validates_presence_of   :markup
+    validates_presence_of   :user_id
 
     def to_s
       self.name
@@ -128,6 +128,7 @@ module ContextWiki::Models
       attributes = version.attributes
       attributes.delete("updated_at")
       attributes.delete("page_id")
+      attributes.delete("id")
       attributes[:version] = version.version
       Page.new(attributes.merge(:versions => [version]))
     end
@@ -1080,14 +1081,14 @@ if __FILE__ == $0
                             :username => 'root',
                             :password => ''
   if true 
+    gem 'mongrel', "<1.1.3"
     require 'mongrel'
     require 'mongrel/camping'
 
   #  ContextWiki::Models::Base.logger = Logger.new('camping.log')
   #  ContextWiki::Models::Base.logger.level = Logger::WARN 
 
-    ContextWiki::Models::Base.threaded_connections = false
-    ContextWiki.create
+    ContextWiki.create if ContextWiki.respond_to? :create
 
     server = Mongrel::Camping::start("0.0.0.0", 3301, "/", ContextWiki)
     puts "** ContextWiki is running on Mongrel at http://localhost:3301/"
