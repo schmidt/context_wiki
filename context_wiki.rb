@@ -442,8 +442,8 @@ module ContextWiki::Controllers
     def latest
       @pages = Page.latest(5)
       render "page_latest"
-##    rescue
-##      redirect R(Pages)
+    rescue
+      redirect R(Pages)
     end
 
     methods[:preview] = [:post]
