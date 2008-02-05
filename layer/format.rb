@@ -1,4 +1,9 @@
 class ContextWiki::Controllers::Pages
+  in_layer :json_request do 
+    self.extend(RESTModels)
+    specify_domain_model(:name => "versions",
+                         :model => "@page.versions")
+  end
   in_layer :xml_request do 
     self.extend(RESTModels)
     specify_domain_model(:name => "versions",
@@ -11,14 +16,7 @@ module ContextWiki::Base
     super
   end
 
-  in_layer :xml_request do
-    def render(m)
-      model = fetch_model(yield(:receiver))
-      yield(:receiver).instance_variable_get(:@headers)["Content-Type"] = 
-        "application/xml"
-      model.nil? ? "" : model.to_xml
-    end
-
+  module ModelGuessing
     def fetch_model(receiver)
       if receiver.respond_to?(:model)
         receiver.model
@@ -39,6 +37,29 @@ module ContextWiki::Base
 
     def fetch_controller_name(receiver)
       receiver.class.name.scan(/([^:]+)$/).first.first.downcase
+    end
+  end
+
+  in_layer :xml_request do
+    include ModelGuessing
+
+    def render(m)
+      model = fetch_model(yield(:receiver))
+      yield(:receiver).instance_variable_get(:@headers)["Content-Type"] = 
+        "application/xml"
+      model.nil? ? "" : model.to_xml
+    end
+  end
+
+  in_layer :json_request do
+    include ModelGuessing
+
+    def render(m)
+      model = fetch_model(yield(:receiver))
+      yield(:receiver).instance_variable_get(:@headers)["Content-Type"] = 
+        "text/plain"
+        "application/json"
+      model.nil? ? "" : model.to_json
     end
   end
 
