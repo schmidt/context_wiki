@@ -95,7 +95,7 @@ end
 module ContextWiki::Views
   in_layer :atom_request do
     def layout 
-      yield(:block)
+      yield(:block!)
     end
 
     def page_latest
@@ -142,7 +142,7 @@ end
 module ContextWiki::Views
   in_layer :rss_request do
     def layout 
-      yield(:block)
+      yield(:block!)
     end
 
     def page_latest
