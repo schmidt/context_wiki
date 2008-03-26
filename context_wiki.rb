@@ -121,6 +121,10 @@ module ContextWiki::Models
       ContextWiki::RENDERER[self.markup.to_sym].render(self.content)
     end
 
+    def updated_at
+      super || Time.now
+    end
+
     def self.new_for_render(options)
       p = Page.new :content => options.content, :markup => options.markup
       p.name = options.name
@@ -1119,7 +1123,7 @@ if __FILE__ == $0
                             :username => 'root',
                             :password => ''
   if true 
-    gem 'mongrel', "<1.1.3"
+    gem 'mongrel', "!= 1.1.3"
     require 'mongrel'
     require 'mongrel/camping'
 

@@ -70,7 +70,7 @@ module ContextWiki::Base
           "application/atom+xml"
         super
       else
-        ContextR::without_layer :rss_request do
+        ContextR::without_layer :atom_request do
           super(m)
         end
       end
@@ -101,8 +101,8 @@ module ContextWiki::Views
     def page_latest
       pages = yield(:receiver).instance_variable_get(:@pages)
       root = yield(:receiver).instance_eval { URL(Index) }.to_s.gsub("/","")
-      page_url = lambda do |page|
-        "http://" + root + yield(:receiver).instance_eval { R(Pages, page) }
+      page_url = lambda do |*params|
+        "http://" + root + yield(:receiver).instance_eval { R(Pages, *params) }
       end
 
       xml = Builder::XmlMarkup.new
@@ -112,11 +112,11 @@ module ContextWiki::Views
         xml.title "ContextWiki Latest Changes - Atom" 
 
         xml.link 'rel' => 'self', 'type' => 'application/atom+xml',
-                 'href' => page_url["latest.atom"]
+                 'href' => page_url["latest", "atom"]
         xml.link 'rel' => 'alternate', 'type' => 'text/html',
                  'href' => page_url["latest"]
 
-        xml.updated @pages.first.updated_at.xmlschema
+        xml.updated pages.first.updated_at.xmlschema
 
         pages.each do |page|
           xml.entry do 
