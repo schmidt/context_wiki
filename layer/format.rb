@@ -1,4 +1,9 @@
 class ContextWiki::Controllers::Pages
+  in_layer :json_request do 
+    self.extend(RESTModels)
+    specify_domain_model(:name => "versions",
+                         :model => "@page.versions")
+  end
   in_layer :xml_request do 
     self.extend(RESTModels)
     specify_domain_model(:name => "versions",
@@ -11,14 +16,7 @@ module ContextWiki::Base
     super
   end
 
-  in_layer :xml_request do
-    def render(m)
-      model = fetch_model(yield(:receiver))
-      yield(:receiver).instance_variable_get(:@headers)["Content-Type"] = 
-        "application/xml"
-      model.nil? ? "" : model.to_xml
-    end
-
+  module ModelGuessing
     def fetch_model(receiver)
       if receiver.respond_to?(:model)
         receiver.model
@@ -42,6 +40,29 @@ module ContextWiki::Base
     end
   end
 
+  in_layer :xml_request do
+    include ModelGuessing
+
+    def render(m)
+      model = fetch_model(yield(:receiver))
+      yield(:receiver).instance_variable_get(:@headers)["Content-Type"] = 
+        "application/xml"
+      model.nil? ? "" : model.to_xml
+    end
+  end
+
+  in_layer :json_request do
+    include ModelGuessing
+
+    def render(m)
+      model = fetch_model(yield(:receiver))
+      yield(:receiver).instance_variable_get(:@headers)["Content-Type"] = 
+        "text/plain"
+        "application/json"
+      model.nil? ? "" : model.to_json
+    end
+  end
+
   in_layer :atom_request do
     def render(m)
       if m == "page_latest"
@@ -49,7 +70,7 @@ module ContextWiki::Base
           "application/atom+xml"
         super
       else
-        ContextR::without_layer :rss_request do
+        ContextR::without_layer :atom_request do
           super(m)
         end
       end
@@ -74,14 +95,14 @@ end
 module ContextWiki::Views
   in_layer :atom_request do
     def layout 
-      yield(:block)
+      yield(:block!)
     end
 
     def page_latest
       pages = yield(:receiver).instance_variable_get(:@pages)
       root = yield(:receiver).instance_eval { URL(Index) }.to_s.gsub("/","")
-      page_url = lambda do |page|
-        "http://" + root + yield(:receiver).instance_eval { R(Pages, page) }
+      page_url = lambda do |*params|
+        "http://" + root + yield(:receiver).instance_eval { R(Pages, *params) }
       end
 
       xml = Builder::XmlMarkup.new
@@ -91,11 +112,11 @@ module ContextWiki::Views
         xml.title "ContextWiki Latest Changes - Atom" 
 
         xml.link 'rel' => 'self', 'type' => 'application/atom+xml',
-                 'href' => page_url["latest.atom"]
+                 'href' => page_url["latest", "atom"]
         xml.link 'rel' => 'alternate', 'type' => 'text/html',
                  'href' => page_url["latest"]
 
-        xml.updated @pages.first.updated_at.xmlschema
+        xml.updated pages.first.updated_at.xmlschema
 
         pages.each do |page|
           xml.entry do 
@@ -121,7 +142,7 @@ end
 module ContextWiki::Views
   in_layer :rss_request do
     def layout 
-      yield(:block)
+      yield(:block!)
     end
 
     def page_latest

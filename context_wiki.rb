@@ -33,11 +33,11 @@ module ContextWiki::Models
     attr_accessor :password
     before_save :hash_password
 
-    validates_presence_of :name, :email
+    validates_presence_of   :name, :email
     validates_uniqueness_of :name
-    validates_exclusion_of :name, :in => %w{new edit current}
-    validates_length_of :name, :within => 2..25
-    validates_format_of :name, :with => /[a-z]+/i
+    validates_exclusion_of  :name, :in => %w{new edit current}
+    validates_length_of     :name, :within => 2..25
+    validates_format_of     :name, :with => /[a-z]+/i
     validates_length_of :password, :within => 2..25, :if => :password_required?
     validates_confirmation_of :password,             :if => :password_required?
     validates_format_of :email, 
@@ -90,8 +90,8 @@ module ContextWiki::Models
     has_many :group_memberships
     has_many :users, :through => :group_memberships
 
-    validates_length_of :name, :within => 2..25
-    validates_format_of :name, :with => /[a-z]+/i
+    validates_length_of    :name, :within => 2..25
+    validates_format_of    :name, :with => /[a-z]+/i
     validates_exclusion_of :name, :in => %w{new edit}
 
     def to_s
@@ -106,7 +106,7 @@ module ContextWiki::Models
     validates_uniqueness_of :name
     validates_format_of     :name, :with => /^[a-zA-Z0-9\-\.\_\~\!\*\'\(\)\+]+$/
     validates_length_of     :name, :within => 2..50
-    validates_exclusion_of  :name, :in => %w{new edit}
+    validates_exclusion_of  :name, :in => %w{new edit latest}
     validates_presence_of   :markup
     validates_presence_of   :user_id
 
@@ -116,6 +116,10 @@ module ContextWiki::Models
 
     def rendered_content
       ContextWiki::RENDERER[self.markup.to_sym].render(self.content)
+    end
+
+    def updated_at
+      super || Time.now
     end
 
     def self.new_for_render(options)
@@ -134,7 +138,9 @@ module ContextWiki::Models
     end
 
     def self.latest(count = 5)
-      self.find(:all, :limit => count, :include => "versions", :order => "contextwiki_page_versions.updated_at DESC")
+      self.find(:all, :limit => count, 
+                      :include => "versions", 
+                      :order => "contextwiki_page_versions.updated_at DESC")
     end
   end
 
@@ -437,8 +443,8 @@ module ContextWiki::Controllers
     def latest
       @pages = Page.latest(5)
       render "page_latest"
-##    rescue
-##      redirect R(Pages)
+    rescue
+      redirect R(Pages)
     end
 
     methods[:preview] = [:post]
@@ -1018,6 +1024,15 @@ module ContextWiki::Helpers
   def current_user?(user)
     current_user.try.name == user.name
   end
+
+
+  def errors_for(record)
+    ul.errors do 
+      record.errors.each_full do |error| 
+        li error
+      end
+    end if record.errors.any? 
+  end 
 end
 
 def ContextWiki.create
@@ -1081,7 +1096,7 @@ if __FILE__ == $0
                             :username => 'root',
                             :password => ''
   if true 
-    gem 'mongrel', "<1.1.3"
+    gem 'mongrel', "!= 1.1.3"
     require 'mongrel'
     require 'mongrel/camping'
 
