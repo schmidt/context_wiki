@@ -53,7 +53,7 @@ module ContextCamping
 
   def self.included(mod)
     ContextR::EventMachine::ContextRListener.class_eval do
-      remove_method(:include)
+      remove_method(:include) if instance_methods(false).include? "include"
     end
   end
 end
