@@ -50,4 +50,10 @@ module ContextCamping
       end
     end
   end
+
+  def self.included(mod)
+    ContextR::EventMachine::ContextRListener.class_eval do
+      remove_method(:include)
+    end
+  end
 end
