@@ -139,11 +139,11 @@ module ContextWiki
     end
   end
 
-# Description of :no_known_user layer
+# Description of :unknown_user layer
   #
   # Restrict access in to Controllers
   class Controllers::Users
-    in_layer :no_known_user do
+    in_layer :unknown_user do
       self.extend(UnAuthorized)
 
       restrict_access(:get, :allow => '/^new$/')
@@ -152,7 +152,7 @@ module ContextWiki
   end
   # Remove/Change links in Views
   module Views
-    in_layer :no_known_user do
+    in_layer :unknown_user do
       include Manipulation
       def _navigation_links(&context)
         manipulate(context) do

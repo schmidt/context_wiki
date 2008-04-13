@@ -14,7 +14,7 @@ end
 
 module ContextCamping
   def compute_current_context
-    returning([]) do |layers|
+    returning(layers = []) do 
       layers << :random if rand(2).zero?
 
       if @state.current_user
@@ -22,7 +22,7 @@ module ContextCamping
         @current_user = @state.current_user
         registered_groups = @current_user.groups.collect(&:name)
       else
-        layers << :no_known_user
+        layers << :unknown_user
         registered_groups = []
       end
 
