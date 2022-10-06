@@ -3,7 +3,7 @@ RMQL
 
 RMQL is a simple query language that allows to create queries on a specific rails model. The advantage of this approach is on the one hand the ease of use and on the other hand it allows the application developer to create queries to the application that only return what the end user wants to see.
 
-The intended target system for this plugin are applications, that want to open up there application model to external users to create mash-ups using the RMQL language.
+The intended target system for this plugin are applications, that want to open up there application model to external users to create mash-ups using the RMQL language.<br>
 
 
 RMQL by example
