@@ -31,6 +31,11 @@ Reply rate [replies/s]: min 10.6 avg 10.7 max 10.8 stddev 0.1 (3 samples)
 # Using Rack/Mongrel 
 
 # With layers r63
+# Without layers, without sessions
+
+Reply rate [replies/s]: min 9.8 avg 10.4 max 11.0 stddev 0.8 (2 samples)
+Reply rate [replies/s]: min 10.4 avg 10.6 max 10.8 stddev 0.2 (3 samples)
+Reply rate [replies/s]: min 10.6 avg 10.7 max 10.8 stddev 0.1 (3 samples)
 
 Reply rate [replies/s]: min 7.8 avg 7.8 max 7.8 stddev 0.0 (3 samples)
 Reply rate [replies/s]: min 8.2 avg 8.2 max 8.2 stddev 0.0 (3 samples)
